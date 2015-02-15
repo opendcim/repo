@@ -120,10 +120,25 @@ function authenticate(\Slim\Route $route) {
   *
   **/
 
-$app->get('cdutemplate', function() {
+$app->get('/cdutemplate', function() {
 });
 
-$app->get('devicetemplate', function() {
+$app->get('/devicetemplate', function() {
+	$dt = new DeviceTemplates();
+	$dtList = $dt->getDeviceTemplate();
+
+	$response['error'] = false;
+	$response['errorcode'] = 200;
+	$response['devicetemplates'] = array();
+	foreach ( $dtList as $devtmp ) {
+		$tmp = array();
+		foreach ( $devtmp as $prop=>$value ) {
+			$tmp[$prop] = $value;
+		}
+		array_push( $response['devicetemplates'], $tmp );
+	}
+
+	echoRespnse( 200, $response );
 });
 
 //

@@ -46,4 +46,71 @@ function getManufacturer( $ManufacturerID = null ) {
 	return $mfgList;
 }
 }
+
+class DeviceTemplates {
+	var $TemplateID;
+	var $ManufacturerID;
+	var $Model;
+	var $Height;
+	var $Weight;
+	var $Wattage;
+	var $DeviceType;
+	var $PSCount;
+	var $NumPorts;
+	var $Notes;
+	var $FrontPictureFile;
+	var $RearPictureFile;
+	var $ChassisSlots;
+	var $RearChassisSlots;
+
+function query( $sql ) {
+        global $dbh;
+        return $dbh->query( $sql );
+}
+
+function exec( $sql ) {
+        global $dbh;
+        return $dbh->exec( $sql );
+}
+
+static function RowToObject( $dbRow ) {
+	$t = new DeviceTemplates();
+
+	$t->TemplateID = $dbRow["TemplateID"];
+	$t->ManufacturerID = $dbRow["ManufacturerID"];
+	$t->Model = $dbRow["Model"];
+	$t->Height = $dbRow["Height"];
+	$t->Weight = $dbRow["Weight"];
+	$t->Wattage = $dbRow["Wattage"];
+	$t->DeviceType = $dbRow["DeviceType"];
+	$t->PSCount = $dbRow["PSCount"];
+	$t->NumPorts = $dbRow["NumPorts"];
+	$t->Notes = $dbRow["Notes"];
+	$t->FrontPictureFile = $dbRow["FrontPictureFile"];
+	$t->RearPictureFile = $dbRow["RearPictureFile"];
+	$t->ChassisSlots = $dbRow["ChassisSlots"];
+	$t->RearChassisSlots = $dbRow["RearChassisSlots"];
+
+	return $t;
+}
+
+function getDeviceTemplate( $TemplateID = null ) {
+	if ( isset( $TemplateID ) ) {
+		$Clause = "AND TemplateID=" . intval( $TemplateID );
+	} else {
+		$Clause = "";
+	}
+
+	$sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL $Clause ORDER BY ManufacturerID ASC, Model ASC";
+
+	$templateList = array();
+	foreach ( $this->query( $sql ) as $tmpRow ) {
+		$templateList[] = DeviceTemplates::RowToObject( $tmpRow );
+	}
+
+	return $templateList;
+}
+}
+
+
 ?>
