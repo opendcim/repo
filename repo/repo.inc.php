@@ -110,6 +110,19 @@ function getDeviceTemplate( $TemplateID = null ) {
 
 	return $templateList;
 }
+
+function getDeviceTemplateByMFG( $manufacturerid ) {
+        $sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL AND ManufacturerID=".intval($manufacturerid)." ORDER BY ManufacturerID ASC, Model ASC";
+
+        $templateList = array();
+        foreach ( $this->query( $sql ) as $tmpRow ) {
+                $templateList[] = DeviceTemplates::RowToObject( $tmpRow );
+        }
+
+        return $templateList;
+
+}
+
 }
 
 

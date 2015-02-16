@@ -141,6 +141,27 @@ $app->get('/devicetemplate', function() {
 	echoRespnse( 200, $response );
 });
 
+$app->get('/devicetemplate/bymanufacturer/:manufacturerid', function( $manufacturerid ) {
+	$dt = new DeviceTemplates();
+	$dtList = $dt->getDeviceTemplateByMFG( $manufacturerid );
+
+        $response['error'] = false;
+        $response['errorcode'] = 200;
+        $response['devicetemplates'] = array();
+        $response['error'] = false;
+        $response['errorcode'] = 200;
+        $response['devicetemplates'] = array();
+        foreach ( $dtList as $devtmp ) {
+                $tmp = array();
+                foreach ( $devtmp as $prop=>$value ) {
+                        $tmp[$prop] = $value;
+                }
+                array_push( $response['devicetemplates'], $tmp );
+        }
+
+        echoRespnse( 200, $response );
+});
+
 //
 //	URL:  /api/manufacturer
 //	Method: GET
