@@ -1,4 +1,33 @@
 <?php
+
+// Generic text sanitization function
+if(!function_exists("sanitize")){
+	function sanitize($string,$stripall=true){
+		// Trim any leading or trailing whitespace
+		$clean=trim($string);
+
+		// Convert any special characters to their normal parts
+		$clean=html_entity_decode($clean,ENT_COMPAT,"UTF-8");
+
+		// By default strip all html
+		$allowedtags=($stripall)?'':'<a><b><i><img><u><br>';
+
+		// Strip out the shit we don't allow
+		$clean=strip_tags($clean, $allowedtags);
+		// If we decide to strip double quotes instead of encoding them uncomment the 
+		//	next line
+	//	$clean=($stripall)?str_replace('"','',$clean):$clean;
+		// What is this gonna do ?
+		$clean=filter_var($clean, FILTER_SANITIZE_SPECIAL_CHARS);
+
+		// There shoudln't be anything left to escape but wtf do it anyway
+		$clean=addslashes($clean);
+
+		return $clean;
+	}
+}
+
+
 class Manufacturers {
 	var $ManufacturerID;
 	var $Name;
@@ -27,6 +56,28 @@ function query( $sql ) {
 function exec( $sql ) {
 	global $dbh;
 	return $dbh->exec( $sql );
+}
+
+function addManufacturer() {
+	global $dbh;
+
+	$this->Name = sanitize( $this->Name );
+	$sql = "select * from Manufacturers where UCASE(Name)=UCASE('$this->Name')";
+	$row = $dbh->query( $sql )->fetch();
+	if ( $row["ManufacturerID"] > 0 ) {
+		error_log( "Table Manufacturers collision:  Name=>" . $this->Name );
+		return false;
+	}
+
+	$sql = "insert into Manufacturers set Name='$this->Name', SubmittedBy='scott@themillikens.com', SubmissionDate=now()";
+	if ( $dbh->exec( $sql ) == 0 ) {
+		error_log( "SQL Error:  SQL=>" . $sql );
+		return null;
+	}
+
+	$this->GlobalID = $dbh->lastInsertId();
+
+	return $this->GlobalID;
 }
 
 function getManufacturer( $ManufacturerID = null ) {

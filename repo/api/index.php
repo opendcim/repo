@@ -189,5 +189,30 @@ $app->get('/manufacturer', function() {
 $app->get( '/sensortemplate', function() {
 });
 
+//
+//	URL:  /api/manufacturer
+//	Method: PUT
+//	Params: JSON array manufacturer of all attributes defined in database table
+//	Returns: 200 if successful
+//
+
+$app->put('/manufacturer', function() use ($app) {
+	$response = array();
+	$m = new Manufacturers();
+	$m->Name = $app->request->post('Name');
+	if ( $m->addManufacturer() ) {
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['message'] = 'Manufacturer addition has been submitted for approval.';
+		$response['manufacturer'] = array( 'GlobalID'=>$m->GlobalID, 'Name'=>$m->Name );
+		echoRespnse( 200, $response );
+	} else {
+		$response['error'] = true;
+		$response['errorcode'] = 403;
+		$response['message'] = 'Manufacturer name already exists in the database.';
+		echoRespnse( 403, $response );
+	}
+});
+
 $app->run();
 ?>
