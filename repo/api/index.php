@@ -189,6 +189,31 @@ $app->get('/manufacturer', function() {
 $app->get( '/sensortemplate', function() {
 });
 
+$app->get('/manufacturer/:manufacturerid', function($ManufacturerID) {
+	$m = new Manufacturers();
+	$mfgList = $m->getManufacturer( $ManufacturerID );
+
+	if ( sizeof( $mfgList ) < 1 ) {
+		$response['error'] = true;
+		$response['errorcode'] = 404;
+		$response['message'] = 'ManufacturerID not found.';
+		echoRespnse( 404, $response );
+	} else {
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['manufacturers'] = array();
+		foreach ( $mfgList as $mfg ) {
+			$tmp = array();
+			foreach( $mfg as $prop=>$value ) {
+				$tmp[$prop] = $value;
+			}
+			array_push( $response['manufacturers'], $tmp );
+		}
+
+		echoRespnse( 200, $response );
+	}
+});
+
 //
 //	URL:  /api/manufacturer
 //	Method: PUT
@@ -212,6 +237,27 @@ $app->put('/manufacturer', function() use ($app) {
 		$response['message'] = 'Manufacturer name already exists in the database.';
 		echoRespnse( 403, $response );
 	}
+});
+
+$app->put('/devicetemplate', function() as ($app) {
+	$response = array();
+	$t = new DeviceTemplates();
+	// We'll run through MakeSafe() inside the object
+	$t->ManufacturerID = $app->request->post('ManufacturerID');
+	$t->Model = $app->request->post('Model');
+	$t->Height = $app->request->post('Height');
+	$t->Weight = $app->request->post('Weight');
+	$t->Wattage = $app->request->post('Wattage');
+	$t->DeviceType = $app->request->post('DeviceType');
+	$t->PSCount = $app->request->post('PSCount');
+	$t->NumPorts = $app->request->post('NumPorts');
+	$t->Notes = $app->request->post('Notes');
+	$t->FrontPictureFile = $app->request->post('FrontPictureFile');
+	$t->RearPictureFile = $app->request->post('RearPictureFile');
+	$t->ChassisSlots = $app->request->post('ChassisSlots');
+	$t->RearChassisSlots = $app->request->post('RearChassisSlots');
+	$t->SumbmittedBy = '';
+	
 });
 
 $app->run();
