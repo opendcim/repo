@@ -69,6 +69,14 @@ function echoRespnse($status_code, $response) {
 }
 
 /**
+ * Need to accept all options requests for PUT calls to work via jquery
+ */
+$app->options('/(:name+)', function() use ($app) {
+    $app->response()->header('Access-Control-Allow-Origin','*');
+    $app->response()->header('Access-Control-Allow-Headers', 'X-Requested-With, X-authentication, X-client');
+});
+
+/**
  * Adding Middle Layer to authenticate every request
  * Checking if the request has valid api key in the 'Authorization' header
  */
@@ -220,11 +228,10 @@ $app->get('/manufacturer/:manufacturerid', function($ManufacturerID) {
 //	Params: JSON array manufacturer of all attributes defined in database table
 //	Returns: 200 if successful
 //
-
 $app->put('/manufacturer', function() use ($app) {
 	$response = array();
 	$m = new Manufacturers();
-	$m->Name = $app->request->post('Name');
+	$m->Name = $app->request->put('Name');
 	if ( $m->addManufacturer() ) {
 		$response['error'] = false;
 		$response['errorcode'] = 200;
@@ -239,7 +246,7 @@ $app->put('/manufacturer', function() use ($app) {
 	}
 });
 
-$app->put('/devicetemplate', function() as ($app) {
+$app->put('/devicetemplate', function() use ($app) {
 	$response = array();
 	$t = new DeviceTemplates();
 	// We'll run through MakeSafe() inside the object
