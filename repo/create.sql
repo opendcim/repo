@@ -20,21 +20,32 @@ CREATE TABLE Users (
   PRIMARY KEY(UserID)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS Manufacturers;
-CREATE TABLE Manufacturers (
-  ManufacturerID INT(11) NOT NULL AUTO_INCREMENT,
+DROP TABLE IF EXISTS ManufacturersQueue;
+CREATE TABLE ManufacturersQueue (
+  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+  ManufacturerID INT(11) NOT NULL,
   Name VARCHAR(80) NOT NULL,
   SubmittedBy VARCHAR(255) NOT NULL,
   SubmissionDate DATETIME DEFAULT NULL,
   ApprovedBy VARCHAR(255) NOT NULL,
   ApprovedDate DATETIME DEFAULT NULL,
-  PRIMARY KEY (ManufacturerID),
+  PRIMARY KEY (RequestID),
   UNIQUE KEY (Name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS DeviceTemplates;
-CREATE TABLE DeviceTemplates (
-  TemplateID INT(11) NOT NULL AUTO_INCREMENT,
+DROP TABLE IF EXISTS Manufacturers;
+CREATE TABLE Manufacturers (
+  ManufacturerID INT(11) NOT NULL AUTO_INCREMENT,
+  Name VARCHAR(80) NOT NULL,
+  LastModified DATETIME NOT NULL,
+  PRIMARY KEY(ManufacturerID),
+  UNIQUE KEY (Name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS DeviceTemplatesQueue;
+CREATE TABLE DeviceTemplatesQueue (
+  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+  TemplateID INT(11) NOT NULL,
   ManufacturerID int(11) NOT NULL,
   Model varchar(80) NOT NULL,
   Height int(11) NOT NULL,
@@ -52,12 +63,34 @@ CREATE TABLE DeviceTemplates (
   SubmissionDate DATETIME DEFAULT NULL,
   ApprovedBy VARCHAR(255) NOT NULL,
   ApprovedDate DATETIME DEFAULT NULL,
-  PRIMARY KEY (TemplateID),
-  UNIQUE KEY ManufacturerID (ManufacturerID,Model)
+  PRIMARY KEY (RequestID)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS Slots;
-CREATE TABLE Slots (
+DROP TABLE IF EXISTS DeviceTemplates;
+CREATE TABLE DeviceTemplates (
+  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+  TemplateID INT(11) NOT NULL,
+  ManufacturerID int(11) NOT NULL,
+  Model varchar(80) NOT NULL,
+  Height int(11) NOT NULL,
+  Weight int(11) NOT NULL,
+  Wattage int(11) NOT NULL,
+  DeviceType enum('Server','Appliance','Storage Array','Switch','Chassis','Patch Panel','Physical Infrastructure') NOT NULL default 'Server',
+  PSCount int(11) NOT NULL,
+  NumPorts int(11) NOT NULL,
+  Notes text NOT NULL,
+  FrontPictureFile VARCHAR(45) NOT NULL,
+  RearPictureFile VARCHAR(45) NOT NULL,
+  ChassisSlots SMALLINT(6) NOT NULL,
+  RearChassisSlots SMALLINT(6) NOT NULL,
+  LastModified DATETIME NOT NULL,
+  PRIMARY KEY (RequestID)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+
+DROP TABLE IF EXISTS SlotsQueue;
+CREATE TABLE SlotsQueue (
+  RequestID INT(11) NOT NULL AUTO_INCREMENT,
   TemplateID INT(11) NOT NULL,
   Position INT(11) NOT NULL,
   BackSide TINYINT(1) NOT NULL,
@@ -69,11 +102,12 @@ CREATE TABLE Slots (
   SubmissionDate DATETIME DEFAULT NULL,
   ApprovedBy VARCHAR(255) NOT NULL,
   ApprovedDate DATETIME DEFAULT NULL,
-  PRIMARY KEY (TemplateID, Position, BackSide)
-) ENGINE = InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8;
+  PRIMARY KEY (RequestID)
+) ENGINE = InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
-DROP TABLE IF EXISTS TemplatePorts;
-CREATE TABLE TemplatePorts (
+DROP TABLE IF EXISTS TemplatePortsQueue;
+CREATE TABLE TemplatePortQueues (
+  RequestID INT(11) NOT NULL AUTO_INCREMENT,
   TemplateID INT(11) NOT NULL,
   PortNumber INT(11) NOT NULL,
   Label VARCHAR(40) NOT NULL,
@@ -84,9 +118,8 @@ CREATE TABLE TemplatePorts (
   SubmissionDate DATETIME DEFAULT NULL,
   ApprovedBy VARCHAR(255) NOT NULL,
   ApprovedDate DATETIME DEFAULT NULL,
-  PRIMARY KEY(TemplateID,PortNumber),
-  UNIQUE KEY `LabeledPort` (TemplateID,PortNumber,Label)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+  PRIMARY KEY(RequestID)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS CDUTemplates;
 

@@ -28,7 +28,8 @@ if(!function_exists("sanitize")){
 }
 
 
-class Manufacturers {
+class ManufacturersQueue {
+	var $RequestID;
 	var $ManufacturerID;
 	var $Name;
 	var $SubmittedBy;
@@ -36,66 +37,71 @@ class Manufacturers {
 	var $ApprovedBy;
 	var $ApprovedDate;
 
-static function RowToObject( $dbRow ) {
-	$Man = new Manufacturers();
-	$Man->ManufacturerID = $dbRow["ManufacturerID"];
-	$Man->Name = $dbRow["Name"];
-	$Man->SubmittedBy = $dbRow["SubmittedBy"];
-	$Man->SubmissionDate = $dbRow["SubmissionDate"];
-	$Man->ApprovedBy = $dbRow["ApprovedBy"];
-	$Man->ApprovedDate = $dbRow["ApprovedDate"];
+	static function RowToObject( $dbRow ) {
+		$Man = new ManufacturersQueue();
+		$Man->RequestID = $dbRow["RequestID"];
+		$Man->ManufacturerID = $dbRow["ManufacturerID"];
+		$Man->Name = $dbRow["Name"];
+		$Man->SubmittedBy = $dbRow["SubmittedBy"];
+		$Man->SubmissionDate = $dbRow["SubmissionDate"];
+		$Man->ApprovedBy = $dbRow["ApprovedBy"];
+		$Man->ApprovedDate = $dbRow["ApprovedDate"];
 
-	return $Man;
-}
-
-function query( $sql ) {
-	global $dbh;
-	return $dbh->query( $sql );
-}
-
-function exec( $sql ) {
-	global $dbh;
-	return $dbh->exec( $sql );
-}
-
-function addManufacturer() {
-	global $dbh;
-
-	$this->Name = sanitize( $this->Name );
-	$sql = "select * from Manufacturers where UCASE(Name)=UCASE('$this->Name')";
-	$row = $dbh->query( $sql )->fetch();
-	if ( $row["ManufacturerID"] > 0 ) {
-		error_log( "Table Manufacturers collision:  Name=>" . $this->Name );
-		return false;
+		return $Man;
+	}
+	
+	function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
 	}
 
-	$sql = "insert into Manufacturers set Name='$this->Name', SubmittedBy='scott@themillikens.com', SubmissionDate=now()";
-	if ( $dbh->exec( $sql ) == 0 ) {
-		error_log( "SQL Error:  SQL=>" . $sql );
-		return null;
+	function queueManufacturer() {
+		global $dbh;
+		
+		$this->Name = sanitize( $this->Name );
+		$st = $this->prepare( "select * from Manufacturers where UCASE(Name)=UCASE(:Name)" );
+		$st->execute( array( ":Name" => $this->Name ) );
+		$row = $st->fetch();
+		if ( $row["ManufacturerID"] > 0 ) {
+			error_log( "Table Manufacturers collision:  Name=>" . $this->Name );
+			return false;
+		}
+
+		$st = $this->prepare( "insert into ManufacturersQueue set Name=:Name, SubmittedBy='scott@themillikens.com', SubmissionDate=now()" );
+		if ( ! $st->execute( array( ":Name" => $this->Name ) ) ) {
+			return null;
+		}
+
+		$this->RequestID = $dbh->lastInsertId();
+
+		return $this->RequestID;
 	}
 
-	$this->GlobalID = $dbh->lastInsertId();
+	function viewStatus( $RequestID = null, $UserID = null ) {
+		if ( isset( $RequestID ) ){
+			$st = $this->prepare( "select * from ManufacturersQueue where RequestID=:RequestID" );
+			$st->execute( array( ":RequestID"=>$RequestID ) );
+		} else {
+			$st = $this->prepare( "select * from ManufacturersQueue order by Name ASC, RequestID ASC" );
+			$st->execute();
+		}
 
-	return $this->GlobalID;
-}
+		$mfgList = array();
+		while ( $mfgRow = $st->fetch() ) {
+			$mfgList[] = ManufacturersQueue::RowToObject( $mfgRow );
+		}
 
-function getManufacturer( $ManufacturerID = null ) {
-	if ( isset( $ManufacturerID ) ) {
-		$Clause = "AND ManufacturerID=" . intval($ManufacturerID);
-	} else {
-		$Clause = "";
+		return $mfgList;
 	}
-
-	$sql = "SELECT * from Manufacturers where ApprovedBy is not null $Clause ORDER BY Name";
-
-	$mfgList = array();
-	foreach ( $this->query( $sql ) as $mfgRow ) {
-		$mfgList[] = Manufacturers::RowToObject( $mfgRow );
+	
+	function approveRequest( $RequestID ) {
+		$st = $this->prepare( "select * from ManufacturersQueue where RequestID=:RequestID" );
+		$st->execute( array( ":RequestID"=>$RequestID ) );
+		if ( $reqRow = $st->fetch() ) {
+		}
+		
+		
 	}
-
-	return $mfgList;
-}
 }
 
 class DeviceTemplates {
@@ -114,67 +120,118 @@ class DeviceTemplates {
 	var $ChassisSlots;
 	var $RearChassisSlots;
 
-function query( $sql ) {
-        global $dbh;
-        return $dbh->query( $sql );
-}
-
-function exec( $sql ) {
-        global $dbh;
-        return $dbh->exec( $sql );
-}
-
-static function RowToObject( $dbRow ) {
-	$t = new DeviceTemplates();
-
-	$t->TemplateID = $dbRow["TemplateID"];
-	$t->ManufacturerID = $dbRow["ManufacturerID"];
-	$t->Model = $dbRow["Model"];
-	$t->Height = $dbRow["Height"];
-	$t->Weight = $dbRow["Weight"];
-	$t->Wattage = $dbRow["Wattage"];
-	$t->DeviceType = $dbRow["DeviceType"];
-	$t->PSCount = $dbRow["PSCount"];
-	$t->NumPorts = $dbRow["NumPorts"];
-	$t->Notes = $dbRow["Notes"];
-	$t->FrontPictureFile = $dbRow["FrontPictureFile"];
-	$t->RearPictureFile = $dbRow["RearPictureFile"];
-	$t->ChassisSlots = $dbRow["ChassisSlots"];
-	$t->RearChassisSlots = $dbRow["RearChassisSlots"];
-
-	return $t;
-}
-
-function getDeviceTemplate( $TemplateID = null ) {
-	if ( isset( $TemplateID ) ) {
-		$Clause = "AND TemplateID=" . intval( $TemplateID );
-	} else {
-		$Clause = "";
+	function query( $sql ) {
+			global $dbh;
+			return $dbh->query( $sql );
 	}
 
-	$sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL $Clause ORDER BY ManufacturerID ASC, Model ASC";
-
-	$templateList = array();
-	foreach ( $this->query( $sql ) as $tmpRow ) {
-		$templateList[] = DeviceTemplates::RowToObject( $tmpRow );
+	function exec( $sql ) {
+			global $dbh;
+			return $dbh->exec( $sql );
 	}
 
-	return $templateList;
+	static function RowToObject( $dbRow ) {
+		$t = new DeviceTemplates();
+
+		$t->TemplateID = $dbRow["TemplateID"];
+		$t->ManufacturerID = $dbRow["ManufacturerID"];
+		$t->Model = $dbRow["Model"];
+		$t->Height = $dbRow["Height"];
+		$t->Weight = $dbRow["Weight"];
+		$t->Wattage = $dbRow["Wattage"];
+		$t->DeviceType = $dbRow["DeviceType"];
+		$t->PSCount = $dbRow["PSCount"];
+		$t->NumPorts = $dbRow["NumPorts"];
+		$t->Notes = $dbRow["Notes"];
+		$t->FrontPictureFile = $dbRow["FrontPictureFile"];
+		$t->RearPictureFile = $dbRow["RearPictureFile"];
+		$t->ChassisSlots = $dbRow["ChassisSlots"];
+		$t->RearChassisSlots = $dbRow["RearChassisSlots"];
+
+		return $t;
+	}
+
+	function getDeviceTemplate( $TemplateID = null ) {
+		if ( isset( $TemplateID ) ) {
+			$Clause = "AND TemplateID=" . intval( $TemplateID );
+		} else {
+			$Clause = "";
+		}
+
+		$sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL $Clause ORDER BY ManufacturerID ASC, Model ASC";
+
+		$templateList = array();
+		foreach ( $this->query( $sql ) as $tmpRow ) {
+			$templateList[] = DeviceTemplates::RowToObject( $tmpRow );
+		}
+
+		return $templateList;
+	}
+
+	function getDeviceTemplateByMFG( $manufacturerid ) {
+			$sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL AND ManufacturerID=".intval($manufacturerid)." ORDER BY ManufacturerID ASC, Model ASC";
+
+			$templateList = array();
+			foreach ( $this->query( $sql ) as $tmpRow ) {
+					$templateList[] = DeviceTemplates::RowToObject( $tmpRow );
+			}
+
+			return $templateList;
+
+	}
+
 }
 
-function getDeviceTemplateByMFG( $manufacturerid ) {
-        $sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL AND ManufacturerID=".intval($manufacturerid)." ORDER BY ManufacturerID ASC, Model ASC";
+class Users {
+	var $UserID;
+	var $PrettyName;
+	var $PasswordHash;
+	var $APIKey;
+	var $LastLoginAddress;
+	var $LastLogin;
+	var $LastAPIAddress;
+	var $LastAPILogin;
+	var $Disabled;
+	
+	function prepare( $sql ) {
+		global $dbh;
+		
+		return $dbh->prepare( $sql );
+	}
+	
+	public function RowToObject( $row ) {
+		$u = new Users;
+		
+		$u->UserID = $row["UserID"];
+		$u->PrettyName = $row["PrettyName"];
+		$u->PasswordHash = $row["PasswordHash"];
+		$u->APIKey = $row["APIKey"];
+		$u->LastLoginAddress = $row["LastLoginAddress"];
+		$u->LastLogin = $row["LastLogin"];
+		$u->LastAPIAddress = $row["LastAPIAddress"];
+		$u->LastAPILogin = $row["LastAPILogin"];
+	}
+	
+	function verifyAPIKey( $APIKey, $IPAddress ) {
+		$st = $this->prepare( "select * from Users where APIKey=:APIKey and Disabled=false" );
+		$st->execute( array( ":APIKey"=>$APIKey ) );
+		$row = $st->fetch();
 
-        $templateList = array();
-        foreach ( $this->query( $sql ) as $tmpRow ) {
-                $templateList[] = DeviceTemplates::RowToObject( $tmpRow );
-        }
-
-        return $templateList;
-
-}
-
-}
-
+		if ( $row["UserID"] == null ) {
+			return false;
+		}
+		
+		// Obviously this counts as a login, so update the LastLogin time and IP Address
+		$st = $this->prepare( "update Users set LastAPIAddress=:ipaddress, LastAPILogin=now() where APIKey=:APIKey" );
+		$st->execute( array( ":ipaddress"=>$IPAddress, ":APIKey"=>$APIKey ) );
+		
+		foreach( $row as $prop=>$value ) {
+			$this->$prop = $value;
+		}
+		
+		return true;
+	}
+	
+}	
 
 ?>
