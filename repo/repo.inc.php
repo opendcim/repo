@@ -27,6 +27,38 @@ if(!function_exists("sanitize")){
 	}
 }
 
+class Manufacturers {
+	var $ManufacturerID;
+	var $Name;
+	var $LastModified;
+
+	static function RowToObject( $row ) {
+		$m = new Manufacturers();
+
+		foreach( $row as $prop=>$value ) {
+			$m->$prop = $value;
+		}
+
+		return $m;
+	}
+
+	function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
+	}
+
+	function getManufacturer() {
+		$st = $this->prepare( "select * from Manufacturers order by Name ASC" );
+		$st->execute();
+
+		$mfgList = array();
+		while ( $row = $st->fetch( PDO::FETCH_ASSOC ) ) {
+			$mfgList[] = Manufacturers::RowToObject( $row );
+		}
+
+		return $mfgList;
+	}
+}
 
 class ManufacturersQueue {
 	var $RequestID;

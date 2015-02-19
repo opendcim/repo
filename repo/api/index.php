@@ -12,8 +12,8 @@
 	// $app->get( '/devicetemplate', 'getDeviceTemplate' );
 	// $app->get( '/devicetemplate/byid/:templateid', 'getDeviceTemplateByID' );
 	// $app->get( '/devicetemplate/bymanufacturer/:manufacturerid', 'getDeviceTemplateByManufacturer' );
-	// $app->get( '/manufacturer', 'getManufacturer' );
-	// $app->get( '/manufacturer/byid/:manufacturerid', 'getManufacturerByID' );
+	$app->get( '/manufacturer', 'getManufacturer' );
+	$app->get( '/manufacturer/byid/:manufacturerid', 'getManufacturerByID' );
 	$app->get( '/manufacturer/pending', 'getPendingManufacturer' );
 	$app->get( '/manufacturer/pending/byid/:requestid', 'getPendingManufacturerByID' );
 	
@@ -24,7 +24,7 @@
  */
 	$app->options('/(:name+)', function() use ($app) {
 		$app->response()->header('Access-Control-Allow-Origin','*');
-		$app->response()->header('Access-Control-Allow-Headers', 'X-Requested-With, X-authentication, X-client');
+		$app->response()->header('Access-Control-Allow-Headers', 'X-Requested-With, X-authentication, X-client, UserID, APIKey');
 	});
 	
 
@@ -210,7 +210,24 @@
 		echoRespnse( 200, $response );
 	}
 
+	function getManufacturer() {
+                $m = new Manufacturers();
+                $mfgList = $m->getManufacturer();
 
+                $response['error'] = false;
+                $response['errorcode'] = 200;
+                $response['manufacturers'] = array();
+                foreach ( $mfgList as $mfg ) {
+                        $tmp = array();
+                        foreach( $mfg as $prop=>$value ) {
+                                $tmp[$prop] = $value;
+                        }
+                        array_push( $response['manufacturers'], $tmp );
+                }
+
+                        echoRespnse( 200, $response );
+
+	}
 
 	function getManufacturerByID($ManufacturerID) {
 		$m = new Manufacturers();
