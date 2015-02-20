@@ -32,16 +32,6 @@ class Manufacturers {
 	var $Name;
 	var $LastModified;
 
-	static function RowToObject( $row ) {
-		$m = new Manufacturers();
-
-		foreach( $row as $prop=>$value ) {
-			$m->$prop = $value;
-		}
-
-		return $m;
-	}
-
 	function prepare( $sql ) {
 		global $dbh;
 		return $dbh->prepare( $sql );
@@ -52,8 +42,9 @@ class Manufacturers {
 		$st->execute();
 
 		$mfgList = array();
-		while ( $row = $st->fetch( PDO::FETCH_ASSOC ) ) {
-			$mfgList[] = Manufacturers::RowToObject( $row );
+		$st->setFetchMode( PDO::FETCH_CLASS, "Manufacturers" );
+		while ( $m = $st->fetch() ) {
+			$mfgList[] = $m;
 		}
 
 		return $mfgList;
@@ -69,19 +60,6 @@ class ManufacturersQueue {
 	var $ApprovedBy;
 	var $ApprovedDate;
 
-	static function RowToObject( $dbRow ) {
-		$Man = new ManufacturersQueue();
-		$Man->RequestID = $dbRow["RequestID"];
-		$Man->ManufacturerID = $dbRow["ManufacturerID"];
-		$Man->Name = $dbRow["Name"];
-		$Man->SubmittedBy = $dbRow["SubmittedBy"];
-		$Man->SubmissionDate = $dbRow["SubmissionDate"];
-		$Man->ApprovedBy = $dbRow["ApprovedBy"];
-		$Man->ApprovedDate = $dbRow["ApprovedDate"];
-
-		return $Man;
-	}
-	
 	function prepare( $sql ) {
 		global $dbh;
 		return $dbh->prepare( $sql );
@@ -93,8 +71,9 @@ class ManufacturersQueue {
 		$this->Name = sanitize( $this->Name );
 		$st = $this->prepare( "select * from Manufacturers where UCASE(Name)=UCASE(:Name)" );
 		$st->execute( array( ":Name" => $this->Name ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
 		$row = $st->fetch();
-		if ( $row["ManufacturerID"] > 0 ) {
+		if ( $row->ManufacturerID > 0 ) {
 			error_log( "Table Manufacturers collision:  Name=>" . $this->Name );
 			return false;
 		}
@@ -119,6 +98,7 @@ class ManufacturersQueue {
 		}
 
 		$mfgList = array();
+		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
 		while ( $mfgRow = $st->fetch() ) {
 			$mfgList[] = ManufacturersQueue::RowToObject( $mfgRow );
 		}
@@ -151,64 +131,42 @@ class DeviceTemplates {
 	var $RearPictureFile;
 	var $ChassisSlots;
 	var $RearChassisSlots;
+	var $LastModified;
 
-	function query( $sql ) {
+	function prepare( $sql ) {
 			global $dbh;
-			return $dbh->query( $sql );
-	}
-
-	function exec( $sql ) {
-			global $dbh;
-			return $dbh->exec( $sql );
-	}
-
-	static function RowToObject( $dbRow ) {
-		$t = new DeviceTemplates();
-
-		$t->TemplateID = $dbRow["TemplateID"];
-		$t->ManufacturerID = $dbRow["ManufacturerID"];
-		$t->Model = $dbRow["Model"];
-		$t->Height = $dbRow["Height"];
-		$t->Weight = $dbRow["Weight"];
-		$t->Wattage = $dbRow["Wattage"];
-		$t->DeviceType = $dbRow["DeviceType"];
-		$t->PSCount = $dbRow["PSCount"];
-		$t->NumPorts = $dbRow["NumPorts"];
-		$t->Notes = $dbRow["Notes"];
-		$t->FrontPictureFile = $dbRow["FrontPictureFile"];
-		$t->RearPictureFile = $dbRow["RearPictureFile"];
-		$t->ChassisSlots = $dbRow["ChassisSlots"];
-		$t->RearChassisSlots = $dbRow["RearChassisSlots"];
-
-		return $t;
+			return $dbh->prepare( $sql );
 	}
 
 	function getDeviceTemplate( $TemplateID = null ) {
 		if ( isset( $TemplateID ) ) {
-			$Clause = "AND TemplateID=" . intval( $TemplateID );
+			$st = $this->prepare( "select * from DeviceTemplates where TemplateID=:TemplateID order by ManufacturerID ASC, Model ASC" );
+			$st->execute( array( ":TemplateID"=>$TemplateID ) );
 		} else {
-			$Clause = "";
+			$st = $this->prepare( "select * from DeviceTemplates order by ManufacturerID ASC, Model ASC" );
+			$st->execute();
 		}
 
-		$sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL $Clause ORDER BY ManufacturerID ASC, Model ASC";
-
 		$templateList = array();
-		foreach ( $this->query( $sql ) as $tmpRow ) {
-			$templateList[] = DeviceTemplates::RowToObject( $tmpRow );
+		$st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplates" );
+		while ( $t = $st->fetch() ) {
+			$templateList[] = $t;
 		}
 
 		return $templateList;
 	}
 
 	function getDeviceTemplateByMFG( $manufacturerid ) {
-			$sql = "SELECT * from DeviceTemplates WHERE ApprovedBy IS NOT NULL AND ManufacturerID=".intval($manufacturerid)." ORDER BY ManufacturerID ASC, Model ASC";
+		$st = $this->prepare( "select * from DeviceTemplates where ManufacturerID=:ManufacturerID" );
+		$st->execute( array( ":ManufacturerID"=>$manufacturerid ) );
 
-			$templateList = array();
-			foreach ( $this->query( $sql ) as $tmpRow ) {
-					$templateList[] = DeviceTemplates::RowToObject( $tmpRow );
-			}
+		$templateList = array();
+		$st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplates" );
+		while ( $t = $st->fetch() ) {
+				$templateList[] = $t;
+		}
 
-			return $templateList;
+		return $templateList;
 
 	}
 
@@ -217,12 +175,13 @@ class DeviceTemplates {
 class Users {
 	var $UserID;
 	var $PrettyName;
-	var $PasswordHash;
 	var $APIKey;
 	var $LastLoginAddress;
 	var $LastLogin;
 	var $LastAPIAddress;
 	var $LastAPILogin;
+	var $Administrator;
+	var $Moderator;
 	var $Disabled;
 	
 	function prepare( $sql ) {
@@ -231,25 +190,50 @@ class Users {
 		return $dbh->prepare( $sql );
 	}
 	
-	public function RowToObject( $row ) {
-		$u = new Users;
-		
-		$u->UserID = $row["UserID"];
-		$u->PrettyName = $row["PrettyName"];
-		$u->PasswordHash = $row["PasswordHash"];
-		$u->APIKey = $row["APIKey"];
-		$u->LastLoginAddress = $row["LastLoginAddress"];
-		$u->LastLogin = $row["LastLogin"];
-		$u->LastAPIAddress = $row["LastAPIAddress"];
-		$u->LastAPILogin = $row["LastAPILogin"];
+	function makeSafe() {
+		$this->UserID = filter_var( FILTER_SANITIZE_EMAIL );
+		$this->PrettyName = sanitize( $this->PrettyName );
+		$this->APIKey = sanitize( $this->APIKey );
+		$this->Administrator = intval( $this->Administrator );
+		$this->Moderator = intval( $this->Moderator );
+		$this->Disabled = intval( $this->Disabled );
 	}
-	
+
+	function addUser() {
+		$this->makeSafe();
+		$st = $this->prepare( "insert into Users set UserID=:UserID, PrettyName=:PrettyName, APIKey=:APIKey" );
+		if( ! $st->execute( array( ":UserID"=>$this->UserID, ":PrettyName"=>$this->PrettyName, ":APIKey"=>$this->APIKey ) ) ) {
+			error_log( "Unable to create user account for " . $this->UserID );
+			return false;
+		}
+
+		return true;
+	}
+
+	function updateUser() {
+		$this->makeSafe();
+
+		$st = $this->prepare( "update Users set PrettyName=:PrettyName, APIKey=:APIKey,
+			Administrator=:Administrator, Moderator=:Moderator, Disabled=:Disabled
+			where UserID=:UserID" );
+
+		if ( ! $st->execute( array( ":PrettyName"=>$this->PrettyName,
+			":APIKey"=>$this->APIKey, ":Administrator"=>$this->Administrator,
+			":Moderator"=>$this->Moderator, ":UserID"=>$this->UserID ) ) ) {
+			error_log( "Unable to update user account for " . $this->UserID );
+			return false;
+		}
+
+		return true;
+	}
+
 	function verifyAPIKey( $APIKey, $IPAddress ) {
 		$st = $this->prepare( "select * from Users where APIKey=:APIKey and Disabled=false" );
 		$st->execute( array( ":APIKey"=>$APIKey ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "Users" );
 		$row = $st->fetch();
 
-		if ( $row["UserID"] == null ) {
+		if ( $row->UserID == null ) {
 			return false;
 		}
 		
@@ -257,13 +241,28 @@ class Users {
 		$st = $this->prepare( "update Users set LastAPIAddress=:ipaddress, LastAPILogin=now() where APIKey=:APIKey" );
 		$st->execute( array( ":ipaddress"=>$IPAddress, ":APIKey"=>$APIKey ) );
 		
-		foreach( $row as $prop=>$value ) {
-			$this->$prop = $value;
+		foreach( $row as $key=>$value ) {
+			$this->$key = $value;
 		}
 		
 		return true;
 	}
-	
+
+	function verifyLogin( $IPAddress ) {
+		$st = $this->prepare( "select * from Users where UserID=:UserID and Disabled=false" );
+		$st->execute( array( ":UserID"=>$this->UserID ) );
+		$st->FetchMode( PDO::FETCH_CLASS, "Users" );
+		$row = $st->fetch();
+
+		if ( $row->UserID == null ) {
+			return false;
+		}
+
+		$st = $this->prepare( "update Users set LastLoginAddress=:IPAddress, LastLogin=now() where UserID=:UserID" );
+		$st->execute( array( ":IPAddress"=>$IPAddress, ":UserID"=>$this->UserID ) );
+
+		return $row;
+	}
 }	
 
 ?>

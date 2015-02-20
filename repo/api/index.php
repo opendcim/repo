@@ -216,16 +216,8 @@
 
                 $response['error'] = false;
                 $response['errorcode'] = 200;
-                $response['manufacturers'] = array();
-                foreach ( $mfgList as $mfg ) {
-                        $tmp = array();
-                        foreach( $mfg as $prop=>$value ) {
-                                $tmp[$prop] = $value;
-                        }
-                        array_push( $response['manufacturers'], $tmp );
-                }
-
-                        echoRespnse( 200, $response );
+                $response['manufacturers'] = $mfgList;
+                echoRespnse( 200, $response );
 
 	}
 
