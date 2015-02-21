@@ -122,7 +122,7 @@ class ManufacturersQueue {
 		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
 		if ( $req = $st->fetch() ) {
 			// If the ManufacturerID is set in the request, this is an update
-			if ( $this->ManufacturerID > 0  )
+			if ( $this->ManufacturerID > 0  ) {
 				$st = prepare( "update Manufacturers set Name=:Name, LastModified=now() where
 					ManufacturerID=:ManufacturerID" );
 				$st->execute( array( ":Name"=>$this->Name, ":ManufacturerID"=>$this->ManufacturerID ) );
@@ -233,7 +233,7 @@ class Moderators {
 	function grantModeration( $UserID, $Manufacturers ) {
 		$st = $this->prepare( "insert into Moderators set UserID=:UserID, ManufacturerID=:ManufacturerID" );
 		foreach ( $Manufacturers as $m ) {
-			$st->execute( ":UserID"=>$UserID, ":ManufacturerID"=>$m );
+			$st->execute( array( ":UserID"=>$UserID, ":ManufacturerID"=>$m ) );
 		}
 	}
 
@@ -241,7 +241,7 @@ class Moderators {
 		$st = $this->prepare( "delete from Moderators where UserID=:UserID and ManufacturerID=:ManufacturerID" );
 
 		foreach ( $Manufacturers as $m ) {
-			$st->execute( ":UserID"=>$UserID, ":ManufacturerID"=>$m );
+			$st->execute( array( ":UserID"=>$UserID, ":ManufacturerID"=>$m ) );
 		}
 	}
 }
