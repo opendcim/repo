@@ -49,6 +49,11 @@ class Manufacturers {
 
 		return $mfgList;
 	}
+
+	function updateManufacturer() {
+		$st = $this->prepare( "update Manufacturers set Name=:Name where ManufacturerID=:ManufacturerID" );
+		return $st->execute( array( ":Name"=>$this->Name, ":ManufacturerID"=>$this->ManufacturerID ) );
+	}
 }
 
 class ManufacturersQueue {
@@ -65,9 +70,12 @@ class ManufacturersQueue {
 		return $dbh->prepare( $sql );
 	}
 
-	function queueManufacturer() {
+	function lastInsertId() {
 		global $dbh;
-		
+		return $dbh->lastInsertId();
+	}
+
+	function queueManufacturer() {
 		$this->Name = sanitize( $this->Name );
 		$st = $this->prepare( "select * from Manufacturers where UCASE(Name)=UCASE(:Name)" );
 		$st->execute( array( ":Name" => $this->Name ) );
@@ -83,7 +91,7 @@ class ManufacturersQueue {
 			return null;
 		}
 
-		$this->RequestID = $dbh->lastInsertId();
+		$this->RequestID = $this->lastInsertId();
 
 		return $this->RequestID;
 	}
@@ -107,12 +115,32 @@ class ManufacturersQueue {
 	}
 	
 	function approveRequest( $RequestID ) {
+		global $currUser;
+
 		$st = $this->prepare( "select * from ManufacturersQueue where RequestID=:RequestID" );
 		$st->execute( array( ":RequestID"=>$RequestID ) );
-		if ( $reqRow = $st->fetch() ) {
+		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
+		if ( $req = $st->fetch() ) {
+			// If the ManufacturerID is set in the request, this is an update
+			if ( $this->ManufacturerID > 0  )
+				$st = prepare( "update Manufacturers set Name=:Name, LastModified=now() where
+					ManufacturerID=:ManufacturerID" );
+				$st->execute( array( ":Name"=>$this->Name, ":ManufacturerID"=>$this->ManufacturerID ) );
+			} else {
+				$st->prepare( "insert into Manufacturers set Name=:Name, LastModified=now()" );
+				$st->execute( array( ":Name"=>$this->Name ) );
+				$this->ManufacturerID=$this->lastInsertId();
+			}
+
+			$this->ApprovedBy = $currUser->UserID;
+			
+			$st = $this->prepare( "update ManufacturersQueue set ApprovedBy=:UserID,
+				ManufacturerID=:ManufacturerID, ApprovedTime=now() where RequestID=:RequestID" );
+			$st->execute( array( ":UserID"=>$currUser->UserID, 
+				":ManufacturerID"=>$this->ManufacturerID, ":RequestID"=>$this->RequestID ) );
 		}
 		
-		
+		return true;
 	}
 }
 
@@ -170,6 +198,52 @@ class DeviceTemplates {
 
 	}
 
+}
+
+class Moderators {
+	/* Simple authorization schema:
+		If you are an Administrator, you can do anything
+		If you are a Moderator, it is for 1 or more Manufacturer lines
+		Goal is to have a Moderator for each Manufacturer that will keep that
+		information up to date, and in the long out future we could have some
+		manufacturers assign someone from their organization to keep the data
+		accurate.
+	*/
+	var $UserID;
+	var $ManufacturerID;
+
+	function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
+	}
+
+	function getRights() {
+		$st = $this->prepare( "select * from Moderators where UserID=:UserID order by ManufacturerID" );
+		$st->setFetchMode( PDO::FETCH_CLASS, "Moderators" );
+		$st->execute( ":UserID", $this->UserID );
+
+		$rightsList = array();
+		while ( $r = $st->fetch() ) {
+			$rightsList[] = $r;
+		}
+
+		return $rightsList;
+	}
+
+	function grantModeration( $UserID, $Manufacturers ) {
+		$st = $this->prepare( "insert into Moderators set UserID=:UserID, ManufacturerID=:ManufacturerID" );
+		foreach ( $Manufacturers as $m ) {
+			$st->execute( ":UserID"=>$UserID, ":ManufacturerID"=>$m );
+		}
+	}
+
+	function revokeModeration( $UserID, $Manufacturers ) {
+		$st = $this->prepare( "delete from Moderators where UserID=:UserID and ManufacturerID=:ManufacturerID" );
+
+		foreach ( $Manufacturers as $m ) {
+			$st->execute( ":UserID"=>$UserID, ":ManufacturerID"=>$m );
+		}
+	}
 }
 
 class Users {
@@ -237,9 +311,9 @@ class Users {
 			return false;
 		}
 		
-		// Obviously this counts as a login, so update the LastLogin time and IP Address
-		$st = $this->prepare( "update Users set LastAPIAddress=:ipaddress, LastAPILogin=now() where APIKey=:APIKey" );
-		$st->execute( array( ":ipaddress"=>$IPAddress, ":APIKey"=>$APIKey ) );
+		// Obviously this counts as a login, so update the LastAPILogin time and IP Address
+		$st = $this->prepare( "update Users set LastAPIAddress=:IPAddress, LastAPILogin=now() where APIKey=:APIKey" );
+		$st->execute( array( ":IPAddress"=>$IPAddress, ":APIKey"=>$APIKey ) );
 		
 		foreach( $row as $key=>$value ) {
 			$this->$key = $value;
@@ -258,6 +332,7 @@ class Users {
 			return false;
 		}
 
+		// This counts as a login, so update the LastLogin time and IP Address
 		$st = $this->prepare( "update Users set LastLoginAddress=:IPAddress, LastLogin=now() where UserID=:UserID" );
 		$st->execute( array( ":IPAddress"=>$IPAddress, ":UserID"=>$this->UserID ) );
 
