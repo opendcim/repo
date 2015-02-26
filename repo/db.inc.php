@@ -21,4 +21,10 @@
 			printf( "Error!  %s\n", $e->getMessage() );
 			die();
 	}
+
+	// OAuth 2.0 data
+        $ClientID = '493405997271-lsefoa9cbvo0rmb0id18cc67l6upt1ah.apps.googleusercontent.com';
+        $ClientSecret = 'feohssBYVMH6mHDMM97ZpmOG';
+
+	session_start();
 ?>

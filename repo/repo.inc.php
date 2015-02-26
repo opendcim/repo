@@ -108,7 +108,7 @@ class ManufacturersQueue {
 		$mfgList = array();
 		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
 		while ( $mfgRow = $st->fetch() ) {
-			$mfgList[] = ManufacturersQueue::RowToObject( $mfgRow );
+			$mfgList[] = $mfgRow;
 		}
 
 		return $mfgList;
@@ -250,12 +250,12 @@ class Users {
 	var $UserID;
 	var $PrettyName;
 	var $APIKey;
+	var $Administrator;
+	var $Moderator;
 	var $LastLoginAddress;
 	var $LastLogin;
 	var $LastAPIAddress;
 	var $LastAPILogin;
-	var $Administrator;
-	var $Moderator;
 	var $Disabled;
 	
 	function prepare( $sql ) {
@@ -325,18 +325,22 @@ class Users {
 	function verifyLogin( $IPAddress ) {
 		$st = $this->prepare( "select * from Users where UserID=:UserID and Disabled=false" );
 		$st->execute( array( ":UserID"=>$this->UserID ) );
-		$st->FetchMode( PDO::FETCH_CLASS, "Users" );
+		$st->setFetchMode( PDO::FETCH_CLASS, "Users" );
 		$row = $st->fetch();
 
 		if ( $row->UserID == null ) {
 			return false;
 		}
 
+		foreach( $row as $key=>$value ) {
+			$this->$key = $value;
+		}
+
 		// This counts as a login, so update the LastLogin time and IP Address
 		$st = $this->prepare( "update Users set LastLoginAddress=:IPAddress, LastLogin=now() where UserID=:UserID" );
 		$st->execute( array( ":IPAddress"=>$IPAddress, ":UserID"=>$this->UserID ) );
 
-		return $row;
+		return true;
 	}
 }	
 

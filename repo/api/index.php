@@ -82,6 +82,11 @@
  */
 	function authenticate(\Slim\Route $route) {
 
+		// If being called from the same server, short circuit this process
+		if ( $_SERVER["REMOTE_ADDR"] == "127.0.0.1" ) {
+			return;
+		}
+
 		// Getting request headers
 		$headers = apache_request_headers();
 		$response = array();
