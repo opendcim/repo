@@ -23,8 +23,8 @@
 	}
 
 	// OAuth 2.0 data
-        $ClientID = '493405997271-lsefoa9cbvo0rmb0id18cc67l6upt1ah.apps.googleusercontent.com';
-        $ClientSecret = 'feohssBYVMH6mHDMM97ZpmOG';
+        $ClientID = 'ENTER YOUR DATA HERE';
+        $ClientSecret = 'ENTER YOUR DATA HERE';
 
 	session_start();
 ?>
