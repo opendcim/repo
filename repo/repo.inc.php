@@ -76,18 +76,21 @@ class ManufacturersQueue {
 	}
 
 	function queueManufacturer() {
+		global $currUser;
+
 		$this->Name = sanitize( $this->Name );
 		$st = $this->prepare( "select * from Manufacturers where UCASE(Name)=UCASE(:Name)" );
 		$st->execute( array( ":Name" => $this->Name ) );
-		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
+		error_log( "Searching for existing Mfg = " . $this->Name );
+		$st->setFetchMode( PDO::FETCH_CLASS, "Manufacturers" );
 		$row = $st->fetch();
-		if ( $row->ManufacturerID > 0 ) {
+		if ( @$row->ManufacturerID > 0 ) {
 			error_log( "Table Manufacturers collision:  Name=>" . $this->Name );
 			return false;
 		}
 
-		$st = $this->prepare( "insert into ManufacturersQueue set Name=:Name, SubmittedBy='scott@themillikens.com', SubmissionDate=now()" );
-		if ( ! $st->execute( array( ":Name" => $this->Name ) ) ) {
+		$st = $this->prepare( "insert into ManufacturersQueue set Name=:Name, SubmittedBy=:UserID, SubmissionDate=now()" );
+		if ( ! $st->execute( array( ":Name" => $this->Name, ":UserID"=>$currUser->UserID ) ) ) {
 			return null;
 		}
 
@@ -101,7 +104,7 @@ class ManufacturersQueue {
 			$st = $this->prepare( "select * from ManufacturersQueue where RequestID=:RequestID" );
 			$st->execute( array( ":RequestID"=>$RequestID ) );
 		} else {
-			$st = $this->prepare( "select * from ManufacturersQueue order by Name ASC, RequestID ASC" );
+			$st = $this->prepare( "select * from ManufacturersQueue where ApprovedBy='' order by Name ASC, RequestID ASC" );
 			$st->execute();
 		}
 
@@ -114,20 +117,18 @@ class ManufacturersQueue {
 		return $mfgList;
 	}
 	
-	function approveRequest( $RequestID ) {
-		global $currUser;
-
+	function approveRequest( $currUser ) {
 		$st = $this->prepare( "select * from ManufacturersQueue where RequestID=:RequestID" );
-		$st->execute( array( ":RequestID"=>$RequestID ) );
+		$st->execute( array( ":RequestID" => $this->RequestID ) );
 		$st->setFetchMode( PDO::FETCH_CLASS, "ManufacturersQueue" );
 		if ( $req = $st->fetch() ) {
 			// If the ManufacturerID is set in the request, this is an update
 			if ( $this->ManufacturerID > 0  ) {
-				$st = prepare( "update Manufacturers set Name=:Name, LastModified=now() where
+				$st = $this->prepare( "update Manufacturers set Name=:Name, LastModified=now() where
 					ManufacturerID=:ManufacturerID" );
 				$st->execute( array( ":Name"=>$this->Name, ":ManufacturerID"=>$this->ManufacturerID ) );
 			} else {
-				$st->prepare( "insert into Manufacturers set Name=:Name, LastModified=now()" );
+				$st = $this->prepare( "insert into Manufacturers set Name=:Name, LastModified=now()" );
 				$st->execute( array( ":Name"=>$this->Name ) );
 				$this->ManufacturerID=$this->lastInsertId();
 			}
@@ -135,9 +136,11 @@ class ManufacturersQueue {
 			$this->ApprovedBy = $currUser->UserID;
 			
 			$st = $this->prepare( "update ManufacturersQueue set ApprovedBy=:UserID,
-				ManufacturerID=:ManufacturerID, ApprovedTime=now() where RequestID=:RequestID" );
+				ManufacturerID=:ManufacturerID, ApprovedDate=now() where RequestID=:RequestID" );
 			$st->execute( array( ":UserID"=>$currUser->UserID, 
 				":ManufacturerID"=>$this->ManufacturerID, ":RequestID"=>$this->RequestID ) );
+		} else {
+			error_log( "Fetch failed for request=" . $this->RequestID );
 		}
 		
 		return true;
@@ -184,8 +187,21 @@ class DeviceTemplates {
 		return $templateList;
 	}
 
+	function getDeviceTemplatebyId( $templateid ) {
+		$st = $this->prepare( "select * from DeviceTemplates where TemplateID=:TemplateID" );
+		$st->execute( array( ":TemplateID"=>$templateid ) );
+
+		$st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplates" );
+		$templateList = array();
+		while ( $t = $st->fetch() ) {
+			$templateList[] = $t;
+		}
+
+		return $templateList;
+	}
+
 	function getDeviceTemplateByMFG( $manufacturerid ) {
-		$st = $this->prepare( "select * from DeviceTemplates where ManufacturerID=:ManufacturerID" );
+		$st = $this->prepare( "select * from DeviceTemplates where ManufacturerID=:ManufacturerID order by Model ASC" );
 		$st->execute( array( ":ManufacturerID"=>$manufacturerid ) );
 
 		$templateList = array();
@@ -199,6 +215,100 @@ class DeviceTemplates {
 	}
 
 }
+
+class DeviceTemplatesQueue {
+        var $TemplateID;
+        var $ManufacturerID;
+        var $Model;
+        var $Height;
+        var $Weight;
+        var $Wattage;
+        var $DeviceType;
+        var $PSCount;
+        var $NumPorts;
+        var $Notes;
+        var $FrontPictureFile;
+        var $RearPictureFile;
+        var $ChassisSlots;
+        var $RearChassisSlots;
+        var $SubmittedBy;
+	var $SubmissionDate;
+	var $ApprovedBy;
+	var $ApprovedDate;
+
+        function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
+        }
+
+	function lastInsertId() {
+		global $dbh;
+		return $dbh->lastInsertId();
+	}
+
+	function makeSafe() {
+		$this->TemplateID = intval( $this->TemplateID );
+		$this->ManufacturerID = intval( $this->ManufacturerID );
+		$this->Model = sanitize( $this->Model );
+		$this->Height = intval( $this->Height );
+		$this->Weight = intval( $this->Weight );
+		$this->Wattage = intval( $this->Wattage );
+		$this->DeviceType = intval( $this->DeviceType );
+		$this->PSCount = intval( $this->PSCount );
+		$this->NumPorts = intval( $this->NumPorts );
+		$this->Notes = sanitize( $this->Notes );
+		$this->FrontPictureFile = sanitize( $this->FrontPictureFile );
+		$this->RearPictureFile = sanitize( $this->RearPictureFile );
+		$this->ChassisSlots = intval( $this->ChassisSlots );
+		$this->RearChassisSlots = intval( $this->RearChassisSlots );
+	}
+
+	function queueDeviceTemplate() {
+		$this->makeSafe();
+
+		// Make sure that we don't violate unique keys
+		// If the TemplateID > 0, this is an update to a record
+		if ( $this->TemplateID == 0 ) {
+			$st = $this->prepare( "select count(*) as Total from DeviceTemplates where ManufacturerID=:ManufacturerID and ucase(Model)=ucase(:Model)" );
+			$st->execute( array( ":ManufacturerID"=>$this->ManufacturerID, ":Model"=>$this->Model ) );
+			$row = $st->fetch();
+
+			if ( $row["Total"] > 0 ) {
+				return false;
+			}
+		}
+
+		// At this stage, there's no difference in the queueing other than the
+		// fact that we add in the TemplateID for existing records.
+		$st = $this->prepare( "insert into DeviceTemplatesQueue set TemplateID=:TemplateID,
+			ManufacturerID=:ManufacturerID, Model=:Model, Height=:Height,
+			Weight=:Weight, Wattage=:Wattage, DeviceType=:DeviceType,
+			PSCount=:PSCount, NumPorts=:NumPorts, Notes=:Notes,
+			FrontPictureFile=:FrontPictureFile, RearPictureFile=:RearPictureFile,
+			ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
+			SubmittedBy=:SubmittedBy, SubmissionDate=now()");
+		$st->execute( array( ":TemplateID"=>$this->TemplateID,
+			":ManufacturerID"=>$this->ManufacturerID,
+			":Model"=>$this->Model,
+			":Height"=>$this->Height,
+			":Weight"=>$this->Weight,
+			":Wattage"=>$this->Wattage,
+			":DeviceType"=>$this->DeviceType,
+			":PSCount"=>$this->PSCount,
+			":NumPorts"=>$this->NumPorts,
+			":Notes"=>$this->Notes,
+			":FrontPictureFile"=>$this->FrontPictureFile,
+			":RearPictureFile"=>$this->RearPictureFile,
+			":ChassisSlots"=>$this->ChassisSlots,
+			":RearChassisSlots"=>$this->RearChassisSlots,
+			":SubmittedBy"=>$this->SubmittedBy ) );
+
+		$this->RequestID = $this->lastInsertId();
+
+		return $this->RequestID;
+	}
+}
+
 
 class Moderators {
 	/* Simple authorization schema:

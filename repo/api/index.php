@@ -9,15 +9,18 @@
 	
 	// $app->get( '/cdutemplate', 'getCDUTemplate' );
 	// $app->get( '/cdutemplate/byid/:cdutemplateid', 'getCDUTemplateByID' );
-	// $app->get( '/devicetemplate', 'getDeviceTemplate' );
-	// $app->get( '/devicetemplate/byid/:templateid', 'getDeviceTemplateByID' );
-	// $app->get( '/devicetemplate/bymanufacturer/:manufacturerid', 'getDeviceTemplateByManufacturer' );
+	$app->get( '/devicetemplate', 'getDeviceTemplate' );
+	$app->get( '/devicetemplate/byid/:templateid', 'getDeviceTemplateByID' );
+	$app->get( '/devicetemplate/bymanufacturer/:manufacturerid', 'getDeviceTemplateByManufacturer' );
 	$app->get( '/manufacturer', 'getManufacturer' );
 	$app->get( '/manufacturer/byid/:manufacturerid', 'getManufacturerByID' );
 	$app->get( '/manufacturer/pending', 'getPendingManufacturer' );
 	$app->get( '/manufacturer/pending/byid/:requestid', 'getPendingManufacturerByID' );
 	
 	$app->put( '/manufacturer', 'authenticate', 'queueManufacturer' );
+	$app->put( '/manufacturer/approve', 'authenticate', 'approveManufacturer' );
+
+	$app->put( '/devicetemplate', 'authenticate', 'queueDeviceTemplate' );
 
 /**
  * Need to accept all options requests for PUT calls to work via jquery
@@ -81,9 +84,18 @@
  * Checking if the request has valid api key in the 'Authorization' header
  */
 	function authenticate(\Slim\Route $route) {
+		global $currUser;
+		$currUser = new Users();
 
 		// If being called from the same server, short circuit this process
 		if ( $_SERVER["REMOTE_ADDR"] == "127.0.0.1" ) {
+			return;
+		}
+
+		// If the Session variable 'userid' exists, this is an interactive session
+		// Rights are adminstered by the UI, rather than the API
+		if ( isset( $_SESSION['userid'] ) ) {
+			$currUser->UserID = $_SESSION['userid'];
 			return;
 		}
 
@@ -92,8 +104,6 @@
 		$response = array();
 		$app = \Slim\Slim::getInstance();
 		
-		global $currUser;
-		$u = new Users();
 
 		// Verifying Authorization Header
 		if (isset($headers['APIKey'])) {
@@ -103,7 +113,7 @@
 			// validating api key
 					
 			// An API key was passed, so check to see if it's real or not
-			if (! $currUser = $u->verifyAPIKey($apikey, $ipaddress)) {
+			if (! $currUser->verifyAPIKey($apikey, $ipaddress)) {
 				// api key is not present in users table
 				$response["error"] = true;
 				$response["errorcode"] = 401;
@@ -146,25 +156,47 @@
 		echoRespnse( 200, $response );
 	}
 
+	function getDeviceTemplateById( $templateid ) {
+		$dt = new DeviceTemplates();
+		$dtList = $dt->getDeviceTemplateById( $templateid );
+
+                $response['error'] = false;
+                $response['errorcode'] = 200;
+                $response['devicetemplates'] = array();
+                $response['error'] = false;
+                $response['errorcode'] = 200;
+                $response['devicetemplates'] = array();
+               	foreach ( $dtList as $devtmp ) {
+			$tmp = array();
+			foreach ( $devtmp as $prop=>$value ) {
+				$tmp[$prop] = $value;
+			}
+			array_push( $response['devicetemplates'], $tmp );
+		}
+
+                echoRespnse( 200, $response );
+ 
+	}
+
 	function getDeviceTemplateByManufacturer( $manufacturerid ) {
 		$dt = new DeviceTemplates();
 		$dtList = $dt->getDeviceTemplateByMFG( $manufacturerid );
 
-			$response['error'] = false;
-			$response['errorcode'] = 200;
-			$response['devicetemplates'] = array();
-			$response['error'] = false;
-			$response['errorcode'] = 200;
-			$response['devicetemplates'] = array();
-			foreach ( $dtList as $devtmp ) {
-					$tmp = array();
-					foreach ( $devtmp as $prop=>$value ) {
-							$tmp[$prop] = $value;
-					}
-					array_push( $response['devicetemplates'], $tmp );
-			}
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['devicetemplates'] = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['devicetemplates'] = array();
+		foreach ( $dtList as $devtmp ) {
+				$tmp = array();
+				foreach ( $devtmp as $prop=>$value ) {
+						$tmp[$prop] = $value;
+				}
+				array_push( $response['devicetemplates'], $tmp );
+		}
 
-			echoRespnse( 200, $response );
+		echoRespnse( 200, $response );
 	}
 
 //
@@ -258,10 +290,10 @@
 //	Returns: 200 if successful
 //
 	function queueManufacturer() {
-		$request = \Slim\Slim::getInstance()->request();
+		$app = \Slim\Slim::getInstance();
 		$response = array();
 		$m = new ManufacturersQueue();
-		$m->Name = $request->put('Name');
+		$m->Name = $app->request->put('Name');
 		if ( $m->queueManufacturer() ) {
 			$response['error'] = false;
 			$response['errorcode'] = 200;
@@ -276,12 +308,34 @@
 		}
 	}
 
+	function approveManufacturer() {
+		global $currUser;
+
+		$app = \Slim\Slim::getInstance();
+		$response = array();
+		$m = new ManufacturersQueue();
+		$vars = json_decode( $app->request->getBody() );
+		$m->Name = $vars->Name;
+		$m->RequestID = $vars->RequestID;
+		if ( $m->approveRequest( $currUser ) ) {
+			$response['error'] = false;
+			$response['errorcode'] = 200;
+			$response['message'] = 'Manufacturer has been approved.';
+			echoRespnse( 200, $response );
+		} else {
+			$response['error'] = true;
+			$response['errorcode'] = 403;
+			$response['message'] = 'Error processing request.';
+			echoRespnse( 403, $response );
+		}
+	}
+
 	function queueDeviceTemplate() {
-		$request = Slim::getInstance()->request();
+		global $currUser;
+		$app = \Slim\Slim::getInstance();
 		
 		$response = array();
-
-/*		$t = new DeviceTemplateQueue();
+		$t = new DeviceTemplatesQueue();
 		$t->ManufacturerID = $app->request->put('ManufacturerID');
 		$t->Model = $app->request->put('Model');
 		$t->Height = $app->request->put('Height');
@@ -296,7 +350,18 @@
 		$t->ChassisSlots = $app->request->put('ChassisSlots');
 		$t->RearChassisSlots = $app->request->put('RearChassisSlots');
 		$t->SubmittedBy = $currUser->UserID;
-*/	
+
+		if ( $t->queueDeviceTemplate() ) {
+			$response['error'] = false;
+			$response['errorcode'] = 200;
+			$response['message'] = 'Device template queued for approval.';
+		} else {
+			$response['error'] = true;
+			$response['errorcode'] = 403;
+			$response['message'] = 'Error processing request.';
+		}
+
+		echoRespnse( $response['errorcode'], $response );
 	}
 
 $app->run();

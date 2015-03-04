@@ -52,7 +52,7 @@ CREATE TABLE DeviceTemplatesQueue (
   Height int(11) NOT NULL,
   Weight int(11) NOT NULL,
   Wattage int(11) NOT NULL,
-  DeviceType enum('Server','Appliance','Storage Array','Switch','Chassis','Patch Panel','Physical Infrastructure') NOT NULL default 'Server',
+  DeviceType varchar(23) NOT NULL default 'Server',
   PSCount int(11) NOT NULL,
   NumPorts int(11) NOT NULL,
   Notes text NOT NULL,
@@ -69,14 +69,13 @@ CREATE TABLE DeviceTemplatesQueue (
 
 DROP TABLE IF EXISTS DeviceTemplates;
 CREATE TABLE DeviceTemplates (
-  RequestID INT(11) NOT NULL AUTO_INCREMENT,
-  TemplateID INT(11) NOT NULL,
+  TemplateID INT(11) NOT NULL AUTO_INCREMENT,
   ManufacturerID int(11) NOT NULL,
   Model varchar(80) NOT NULL,
   Height int(11) NOT NULL,
   Weight int(11) NOT NULL,
   Wattage int(11) NOT NULL,
-  DeviceType enum('Server','Appliance','Storage Array','Switch','Chassis','Patch Panel','Physical Infrastructure') NOT NULL default 'Server',
+  DeviceType varchar(23) NOT NULL default 'Server',
   PSCount int(11) NOT NULL,
   NumPorts int(11) NOT NULL,
   Notes text NOT NULL,
@@ -85,7 +84,7 @@ CREATE TABLE DeviceTemplates (
   ChassisSlots SMALLINT(6) NOT NULL,
   RearChassisSlots SMALLINT(6) NOT NULL,
   LastModified DATETIME NOT NULL,
-  PRIMARY KEY (RequestID)
+  PRIMARY KEY (TemplateID)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 
@@ -123,6 +122,31 @@ CREATE TABLE TemplatePortQueues (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS CDUTemplates;
+CREATE TABLE fac_CDUTemplate (
+  TemplateID int(11) NOT NULL AUTO_INCREMENT,
+  ManufacturerID int(11) NOT NULL,
+  Model varchar(80) NOT NULL,
+  Managed int(1) NOT NULL,
+  ATS int(1) NOT NULL,
+  SNMPVersion varchar(2) NOT NULL DEFAULT '2c',
+  VersionOID varchar(80) NOT NULL,
+  Multiplier varchar(6),
+  OID1 varchar(80) NOT NULL,
+  OID2 varchar(80) NOT NULL,
+  OID3 varchar(80) NOT NULL,
+  ATSStatusOID varchar(80) NOT NULL,
+  ATSDesiredResult varchar(80) NOT NULL,
+  ProcessingProfile enum('SingleOIDWatts','SingleOIDAmperes','Combine3OIDWatts','Combine3OIDAmperes','Convert3PhAmperes'),
+  Voltage int(11) NOT NULL,
+  Amperage int(11) NOT NULL,
+  NumOutlets int(11) NOT NULL,
+  GlobalID int(11) NOT NULL,
+  ShareToRepo tinyint(1) NOT NULL DEFAULT 0,
+  KeepLocal tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (TemplateID),
+  KEY ManufacturerID (ManufacturerID),
+  UNIQUE KEY (ManufacturerID, Model)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS SensorTemplates;
 
