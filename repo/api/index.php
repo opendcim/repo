@@ -12,15 +12,18 @@
 	$app->get( '/devicetemplate', 'getDeviceTemplate' );
 	$app->get( '/devicetemplate/byid/:templateid', 'getDeviceTemplateByID' );
 	$app->get( '/devicetemplate/bymanufacturer/:manufacturerid', 'getDeviceTemplateByManufacturer' );
+	$app->get( '/devicetemplate/pending', 'authenticate', 'getPendingDeviceTemplate' );
+
 	$app->get( '/manufacturer', 'getManufacturer' );
 	$app->get( '/manufacturer/byid/:manufacturerid', 'getManufacturerByID' );
-	$app->get( '/manufacturer/pending', 'getPendingManufacturer' );
-	$app->get( '/manufacturer/pending/byid/:requestid', 'getPendingManufacturerByID' );
+	$app->get( '/manufacturer/pending', 'authenticate', 'getPendingManufacturer' );
+	$app->get( '/manufacturer/pending/byid/:requestid', 'authenticate', 'getPendingManufacturerByID' );
 	
 	$app->put( '/manufacturer', 'authenticate', 'queueManufacturer' );
 	$app->put( '/manufacturer/approve', 'authenticate', 'approveManufacturer' );
 
 	$app->put( '/devicetemplate', 'authenticate', 'queueDeviceTemplate' );
+	$app->post( '/devicetemplate/addpictures/:requestid', 'authenticate', 'queuePictures' );
 
 /**
  * Need to accept all options requests for PUT calls to work via jquery
@@ -113,7 +116,8 @@
 			// validating api key
 					
 			// An API key was passed, so check to see if it's real or not
-			if (! $currUser->verifyAPIKey($apikey, $ipaddress)) {
+			$currUser->UserID = $currUser->verifyAPIKey($apikey, $ipaddress);
+			if ( $currUser == false ) {
 				// api key is not present in users table
 				$response["error"] = true;
 				$response["errorcode"] = 401;
@@ -199,6 +203,10 @@
 		echoRespnse( 200, $response );
 	}
 
+	function getPendingDeviceTemplate() {
+		$dt = new DeviceTemplatesQueue();
+		
+	}
 //
 //	URL:  /api/manufacturer/pending
 //	Method: GET
@@ -333,28 +341,32 @@
 	function queueDeviceTemplate() {
 		global $currUser;
 		$app = \Slim\Slim::getInstance();
-		
-		$response = array();
-		$t = new DeviceTemplatesQueue();
-		$t->ManufacturerID = $app->request->put('ManufacturerID');
-		$t->Model = $app->request->put('Model');
-		$t->Height = $app->request->put('Height');
-		$t->Weight = $app->request->put('Weight');
-		$t->Wattage = $app->request->put('Wattage');
-		$t->DeviceType = $app->request->put('DeviceType');
-		$t->PSCount = $app->request->put('PSCount');
-		$t->NumPorts = $app->request->put('NumPorts');
-		$t->Notes = $app->request->put('Notes');
-		$t->FrontPictureFile = $app->request->put('FrontPictureFile');
-		$t->RearPictureFile = $app->request->put('RearPictureFile');
-		$t->ChassisSlots = $app->request->put('ChassisSlots');
-		$t->RearChassisSlots = $app->request->put('RearChassisSlots');
-		$t->SubmittedBy = $currUser->UserID;
+		$vars = $app->request()->put();
+		$dType = $vars["DeviceType"];
 
+		$response = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+
+		$t = new DeviceTemplatesQueue();
+
+		if ( $dType == "Sensor" ) {
+		} elseif ( $dType == "Sensor" ) {
+		} else {
+			foreach ( $t as $prop => $value ) {
+				$t->$prop = isset( $vars[$prop] ) ? $vars[$prop] : '';
+			}
+
+			if ( $dType == "Chassis" ) {
+			}
+		}
+
+		$t->SubmittedBy = $currUser->UserID;
 		if ( $t->queueDeviceTemplate() ) {
 			$response['error'] = false;
 			$response['errorcode'] = 200;
 			$response['message'] = 'Device template queued for approval.';
+			$response['template'] = array( "RequestID" => $t->RequestID );
 		} else {
 			$response['error'] = true;
 			$response['errorcode'] = 403;
@@ -362,6 +374,41 @@
 		}
 
 		echoRespnse( $response['errorcode'], $response );
+	}
+
+	function queuePictures( $RequestID ) {
+		global $currUser;
+		$app = \Slim\Slim::getInstance();
+
+		$response = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		error_log( "Looking for pictures on RequestID=" . $RequestID );
+
+		if ( isset( $_FILES["front"] ) ) {
+			error_log( "Front picture received for RequestID=" . $RequestID );
+			$fn = '/home/dcim/repo/repo/images/submitted/' . $RequestID . "." . $_FILES["front"]["name"];
+			if ( ! move_uploaded_file($_FILES["front"]["tmp_name"], $fn ) ){
+				error_log( "Error moving file " . $fn );
+				$response['error'] = true;
+				$response['errorcode'] = 400;
+				$response['message'] = 'Unable to relocate temporary file.';
+			}
+		}
+
+		if ( isset( $_FILES['rear'] ) ) {
+			error_log( "Rear picture received for RequestID=" . $RequestID );
+			$fn = '/home/dcim/repo/repo/images/submitted/' . $RequestID . '.' . $_FILES["rear"]["name"];
+			if ( ! move_uploaded_file($_FILES["rear"]["tmp_name"], $fn ) ) {
+				error_log( "Rear file " . $_FILES['rear']['name'] . " uploaded." );
+				$response['error'] = true;
+				$response['errorcode'] = 400;
+				$response['message'] = 'Unable to relocate temporary file.';
+			}
+		}
+
+		echoRespnse( $response['errorcode'], $response );
+
 	}
 
 $app->run();

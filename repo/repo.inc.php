@@ -253,7 +253,7 @@ class DeviceTemplatesQueue {
 		$this->Height = intval( $this->Height );
 		$this->Weight = intval( $this->Weight );
 		$this->Wattage = intval( $this->Wattage );
-		$this->DeviceType = intval( $this->DeviceType );
+		$this->DeviceType = sanitize( $this->DeviceType );
 		$this->PSCount = intval( $this->PSCount );
 		$this->NumPorts = intval( $this->NumPorts );
 		$this->Notes = sanitize( $this->Notes );
@@ -262,6 +262,37 @@ class DeviceTemplatesQueue {
 		$this->ChassisSlots = intval( $this->ChassisSlots );
 		$this->RearChassisSlots = intval( $this->RearChassisSlots );
 	}
+
+	function viewStatus( $RequestID = null ) {
+		global $currUser;
+
+		// Behavior
+		//	If the RequestID is set, pull a specific RequestID
+		//	If not, see if the ManufacturerID is set - if so, pull all for that ManufacturerID, if authorized
+		//	If that isn't set, pull everything authorized to view
+                if ( isset( $RequestID ) ){
+                        $st = $this->prepare( "select * from DeviceTemplatesQueue where RequestID=:RequestID" );
+                        $st->execute( array( ":RequestID"=>$RequestID ) );
+                } elseif ( $this->ManufacturerID > 0 ) {
+			$m = new Moderators();
+			$m->UserID = $this->UserID;
+			$m->ManufacturerID = $this->ManufacturerID;
+
+			if ( $currUser->Administrator || $m->checkRights() ) {
+	                        $st = $this->prepare( "select * from DeviceTemplatesQueue where ApprovedBy='' order by Model ASC, RequestID ASC" );
+	                        $st->execute();
+			}
+                }
+
+                $tmpList = array();
+                $st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplatesQueue" );
+                while ( $tmpRow = $st->fetch() ) {
+                        $tmpList[] = $tmpRow;
+                }
+
+                return $tmpList;
+        }
+
 
 	function queueDeviceTemplate() {
 		$this->makeSafe();
@@ -325,6 +356,19 @@ class Moderators {
 	function prepare( $sql ) {
 		global $dbh;
 		return $dbh->prepare( $sql );
+	}
+
+	function checkRights() {
+		// Set the UserID and ManufacturerID before calling.  This returns true if they are authorizes, or false if not
+		$st = $this->prepare( "select count(*) as Total from Moderators where UserID=:UserID and ManufacturerID=:ManufactrerID" );
+		$st->execute( array( ":UserID"=>$this->UserID, ":ManufacturerID"=>$this->ManufacturerID ) );
+		$r = $st->fetch();
+
+		if ( $r["Total"] == 1 ) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	function getRights() {
@@ -429,7 +473,7 @@ class Users {
 			$this->$key = $value;
 		}
 		
-		return true;
+		return $row->UserID;
 	}
 
 	function verifyLogin( $IPAddress ) {
