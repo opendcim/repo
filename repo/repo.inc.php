@@ -81,7 +81,6 @@ class ManufacturersQueue {
 		$this->Name = sanitize( $this->Name );
 		$st = $this->prepare( "select * from Manufacturers where UCASE(Name)=UCASE(:Name)" );
 		$st->execute( array( ":Name" => $this->Name ) );
-		error_log( "Searching for existing Mfg = " . $this->Name );
 		$st->setFetchMode( PDO::FETCH_CLASS, "Manufacturers" );
 		$row = $st->fetch();
 		if ( @$row->ManufacturerID > 0 ) {
@@ -273,16 +272,15 @@ class DeviceTemplatesQueue {
                 if ( isset( $RequestID ) ){
                         $st = $this->prepare( "select * from DeviceTemplatesQueue where RequestID=:RequestID" );
                         $st->execute( array( ":RequestID"=>$RequestID ) );
-                } elseif ( $this->ManufacturerID > 0 ) {
-			$m = new Moderators();
-			$m->UserID = $this->UserID;
-			$m->ManufacturerID = $this->ManufacturerID;
-
-			if ( $currUser->Administrator || $m->checkRights() ) {
-	                        $st = $this->prepare( "select * from DeviceTemplatesQueue where ApprovedBy='' order by Model ASC, RequestID ASC" );
-	                        $st->execute();
+                } else {
+			if ( ! $currUser->Administrator ) {
+				$st = $this->prepare( "select * from DeviceTemplatesQueue where ApprovedBy='' and ManufacturerID in (select ManufacturerID from Moderators where UserID=:UserID) order by Model ASC, RequestID ASC" );
+				$st->execute( array( ":UserID"=>$currUser->UserID ) );
+			} else {
+				$st = $this->prepare( "select * from DeviceTemplatesQueue where ApprovedBy='' order by Model ASC, RequestID ASC" );
+				$st->execute();
 			}
-                }
+		}
 
                 $tmpList = array();
                 $st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplatesQueue" );
@@ -337,6 +335,32 @@ class DeviceTemplatesQueue {
 		$this->RequestID = $this->lastInsertId();
 
 		return $this->RequestID;
+	}
+}
+
+class TemplatePortsQueue {
+	var $RequestID;
+	var $TemplateID;
+	var $PortNumber;
+	var $Label;
+	var $MediaID;
+	var $ColorID;
+	var $PortNotes;
+
+	function prepare( $sql ) {
+		global $dbh;
+
+		return $dbh->prepare( $sql );
+	}
+
+	function queuePorts( $tpList ) {
+		$st = $this->prepare( "insert into TemplatePortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber,
+			Label=:Label, MediaID=:MediaID, ColorID=:ColorID, PortNotes=:PortNotes" );
+
+		foreach( $tpList as $tp ) {
+			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$tp->PortNumber,
+				":Label"=>$tp->Label, ":MediaID"=>$tp->MediaID, ":ColorID"=>$tp->ColorID, ":PortNotes"=>$tp->PortNotes ) );
+		}
 	}
 }
 

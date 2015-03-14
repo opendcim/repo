@@ -7,23 +7,25 @@
 
 	$app = new \Slim\Slim();
 	
-	// $app->get( '/cdutemplate', 'getCDUTemplate' );
-	// $app->get( '/cdutemplate/byid/:cdutemplateid', 'getCDUTemplateByID' );
-	$app->get( '/devicetemplate', 'getDeviceTemplate' );
-	$app->get( '/devicetemplate/byid/:templateid', 'getDeviceTemplateByID' );
-	$app->get( '/devicetemplate/bymanufacturer/:manufacturerid', 'getDeviceTemplateByManufacturer' );
-	$app->get( '/devicetemplate/pending', 'authenticate', 'getPendingDeviceTemplate' );
+	$app->get( '/template', 'getTemplate' );
+	$app->get( '/template/:templateid', 'getTemplateByID' );
+	$app->get( '/template/byid/:templateid', 'getTemplateByID' );
+	$app->get( '/template/bymanufacturer/:manufacturerid', 'getTemplateByManufacturer' );
+	$app->get( '/template/pending/', 'authenticate', 'getPendingTemplate' );
+	$app->get( '/template/pending/:requestid', 'authenticate', 'getPendingTemplateByID' );
 
 	$app->get( '/manufacturer', 'getManufacturer' );
+	$app->get( '/manufacturer/:manufacturerid', 'getManufacturerByID' );
 	$app->get( '/manufacturer/byid/:manufacturerid', 'getManufacturerByID' );
-	$app->get( '/manufacturer/pending', 'authenticate', 'getPendingManufacturer' );
+	$app->get( '/manufacturer/pending/', 'authenticate', 'getPendingManufacturer' );
+	$app->get( '/manufacturer/pending/:requestid', 'authenticate', 'getPendingManufacturerByID' );
 	$app->get( '/manufacturer/pending/byid/:requestid', 'authenticate', 'getPendingManufacturerByID' );
 	
 	$app->put( '/manufacturer', 'authenticate', 'queueManufacturer' );
 	$app->put( '/manufacturer/approve', 'authenticate', 'approveManufacturer' );
 
-	$app->put( '/devicetemplate', 'authenticate', 'queueDeviceTemplate' );
-	$app->post( '/devicetemplate/addpictures/:requestid', 'authenticate', 'queuePictures' );
+	$app->put( '/template', 'authenticate', 'queueTemplate' );
+	$app->post( '/template/addpictures/:requestid', 'authenticate', 'queuePictures' );
 
 /**
  * Need to accept all options requests for PUT calls to work via jquery
@@ -96,9 +98,9 @@
 		}
 
 		// If the Session variable 'userid' exists, this is an interactive session
-		// Rights are adminstered by the UI, rather than the API
 		if ( isset( $_SESSION['userid'] ) ) {
 			$currUser->UserID = $_SESSION['userid'];
+			$currUser->verifyLogin( $_SERVER["REMOTE_ADDR"] );
 			return;
 		}
 
@@ -136,76 +138,95 @@
 	}
 
 
-	function getCDUTemplate() {
-	}
-	
-	function getCDUTemplateByID() {
-	}
-
-	function getDeviceTemplate() {
+	function getTemplate() {
 		$dt = new DeviceTemplates();
 		$dtList = $dt->getDeviceTemplate();
 
 		$response['error'] = false;
 		$response['errorcode'] = 200;
-		$response['devicetemplates'] = array();
+		$response['templates'] = array();
 		foreach ( $dtList as $devtmp ) {
 			$tmp = array();
 			foreach ( $devtmp as $prop=>$value ) {
 				$tmp[$prop] = $value;
 			}
-			array_push( $response['devicetemplates'], $tmp );
+			array_push( $response['templates'], $tmp );
 		}
 
 		echoRespnse( 200, $response );
 	}
 
-	function getDeviceTemplateById( $templateid ) {
+	function getTemplateById( $templateid ) {
 		$dt = new DeviceTemplates();
 		$dtList = $dt->getDeviceTemplateById( $templateid );
 
                 $response['error'] = false;
                 $response['errorcode'] = 200;
-                $response['devicetemplates'] = array();
-                $response['error'] = false;
-                $response['errorcode'] = 200;
-                $response['devicetemplates'] = array();
+                $response['templates'] = array();
                	foreach ( $dtList as $devtmp ) {
 			$tmp = array();
 			foreach ( $devtmp as $prop=>$value ) {
 				$tmp[$prop] = $value;
 			}
-			array_push( $response['devicetemplates'], $tmp );
+			array_push( $response['templates'], $tmp );
 		}
 
                 echoRespnse( 200, $response );
  
 	}
 
-	function getDeviceTemplateByManufacturer( $manufacturerid ) {
+	function getTemplateByManufacturer( $manufacturerid ) {
 		$dt = new DeviceTemplates();
 		$dtList = $dt->getDeviceTemplateByMFG( $manufacturerid );
 
 		$response['error'] = false;
 		$response['errorcode'] = 200;
-		$response['devicetemplates'] = array();
-		$response['error'] = false;
-		$response['errorcode'] = 200;
-		$response['devicetemplates'] = array();
+		$response['templates'] = array();
 		foreach ( $dtList as $devtmp ) {
 				$tmp = array();
 				foreach ( $devtmp as $prop=>$value ) {
 						$tmp[$prop] = $value;
 				}
-				array_push( $response['devicetemplates'], $tmp );
+				array_push( $response['templates'], $tmp );
 		}
 
 		echoRespnse( 200, $response );
 	}
 
-	function getPendingDeviceTemplate() {
+	function getPendingTemplate() {
 		$dt = new DeviceTemplatesQueue();
-		
+		$dtList = $dt->viewStatus();
+
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['templatequeue'] = array();
+		foreach( $dtList as $tmp ) {
+			$tmpl = array();
+			foreach( $tmp as $prop=>$value ) {
+				$tmpl[$prop] = $value;
+			}
+			array_push( $response['templatequeue'], $tmpl );
+		}
+
+		echoRespnse( 200, $response );
+	}
+
+	function getPendingTemplateByID( $requestid ) {
+		$dt = new DeviceTemplatesQueue();
+		$dtList = $dt->viewStatus( $requestid );
+
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['templatequeue'] = array();
+                foreach( $dtList as $tmp ) {
+                        $tmpl = array();
+                        foreach( $tmp as $prop=>$value ) {
+                                $tmpl[$prop] = $value;
+                        }
+                        array_push( $response['templatequeue'], $tmpl );
+                }
+
+		echoRespnse( 200, $response );
 	}
 //
 //	URL:  /api/manufacturer/pending
@@ -338,23 +359,24 @@
 		}
 	}
 
-	function queueDeviceTemplate() {
+	function queueTemplate() {
 		global $currUser;
 		$app = \Slim\Slim::getInstance();
-		$vars = $app->request()->put();
-		$dType = $vars["DeviceType"];
+		$vars = json_decode( $app->request()->getBody() );
+		$dType = @$vars->template->DeviceType;
 
 		$response = array();
 		$response['error'] = false;
 		$response['errorcode'] = 200;
 
 		$t = new DeviceTemplatesQueue();
+		$tp = new TemplatePortsQueue();
 
 		if ( $dType == "Sensor" ) {
 		} elseif ( $dType == "Sensor" ) {
 		} else {
 			foreach ( $t as $prop => $value ) {
-				$t->$prop = isset( $vars[$prop] ) ? $vars[$prop] : '';
+				$t->$prop = isset( $vars->template->$prop ) ? $vars->template->$prop : '';
 			}
 
 			if ( $dType == "Chassis" ) {
@@ -373,6 +395,12 @@
 			$response['message'] = 'Error processing request.';
 		}
 
+		$tp->RequestID = $t->RequestID;
+		$tp->TemplateID = $t->TemplateID;
+		if ( is_array( $vars->templateports ) ) {
+			$tp->queuePorts( $vars->templateports );
+		}
+
 		echoRespnse( $response['errorcode'], $response );
 	}
 
@@ -383,10 +411,8 @@
 		$response = array();
 		$response['error'] = false;
 		$response['errorcode'] = 200;
-		error_log( "Looking for pictures on RequestID=" . $RequestID );
 
 		if ( isset( $_FILES["front"] ) ) {
-			error_log( "Front picture received for RequestID=" . $RequestID );
 			$fn = '/home/dcim/repo/repo/images/submitted/' . $RequestID . "." . $_FILES["front"]["name"];
 			if ( ! move_uploaded_file($_FILES["front"]["tmp_name"], $fn ) ){
 				error_log( "Error moving file " . $fn );
@@ -397,7 +423,6 @@
 		}
 
 		if ( isset( $_FILES['rear'] ) ) {
-			error_log( "Rear picture received for RequestID=" . $RequestID );
 			$fn = '/home/dcim/repo/repo/images/submitted/' . $RequestID . '.' . $_FILES["rear"]["name"];
 			if ( ! move_uploaded_file($_FILES["rear"]["tmp_name"], $fn ) ) {
 				error_log( "Rear file " . $_FILES['rear']['name'] . " uploaded." );

@@ -106,7 +106,7 @@ CREATE TABLE SlotsQueue (
 ) ENGINE = InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS TemplatePortsQueue;
-CREATE TABLE TemplatePortQueues (
+CREATE TABLE TemplatePortsQueue (
   RequestID INT(11) NOT NULL AUTO_INCREMENT,
   TemplateID INT(11) NOT NULL,
   PortNumber INT(11) NOT NULL,
@@ -118,8 +118,18 @@ CREATE TABLE TemplatePortQueues (
   SubmissionDate DATETIME DEFAULT NULL,
   ApprovedBy VARCHAR(255) NOT NULL,
   ApprovedDate DATETIME DEFAULT NULL,
-  PRIMARY KEY(RequestID)
+  PRIMARY KEY(RequestID,PortNumber)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS TemplatePowerPortsQueue;
+CREATE TABLE TemplatePowerPortsQueue (
+  RequestID INT(11) NOT NULL,
+  TemplateID INT(11) NOT NULL,
+  PortNumber INT(11) NOT NULL,
+  Label VARCHAR(40) NOT NULL,
+  PortNotes VARCHAR(80) NOT NULL,
+  PRIMARY KEY(RequestID,PortNumber)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS CDUTemplates;
 CREATE TABLE fac_CDUTemplate (
