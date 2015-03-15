@@ -332,7 +332,7 @@
 		} else {
 			$response['error'] = true;
 			$response['errorcode'] = 403;
-			$response['message'] = 'Manufacturer name already exists in the database.';
+			$response['message'] = 'Manufacturer name already in pending submission queue.';
 			echoRespnse( 403, $response );
 		}
 	}
