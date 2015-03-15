@@ -38,7 +38,7 @@ class Manufacturers {
 	}
 
 	function getManufacturer($ManufacturerID=null) {
-		$match=(!is_null($ManufacturerID))?" WHERE ManufacturerID=:ManufacturerID ":"";
+		$match=(!is_null($ManufacturerID))?" WHERE ManufacturerID=".intval($ManufacturerID):"";
 		$st = $this->prepare( "select * from Manufacturers $match order by Name ASC" );
 		$st->execute();
 
