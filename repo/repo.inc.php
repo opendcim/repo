@@ -37,8 +37,9 @@ class Manufacturers {
 		return $dbh->prepare( $sql );
 	}
 
-	function getManufacturer() {
-		$st = $this->prepare( "select * from Manufacturers order by Name ASC" );
+	function getManufacturer($ManufacturerID=null) {
+		$match=(!is_null($ManufacturerID))?" WHERE ManufacturerID=:ManufacturerID ":"";
+		$st = $this->prepare( "select * from Manufacturers $match order by Name ASC" );
 		$st->execute();
 
 		$mfgList = array();
