@@ -88,9 +88,9 @@ CREATE TABLE DeviceTemplates (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 
 
-DROP TABLE IF EXISTS SlotsQueue;
-CREATE TABLE SlotsQueue (
-  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+DROP TABLE IF EXISTS ChassisSlotsQueue;
+CREATE TABLE ChassisSlotsQueue (
+  RequestID INT(11) NOT NULL,
   TemplateID INT(11) NOT NULL,
   Position INT(11) NOT NULL,
   BackSide TINYINT(1) NOT NULL,
@@ -98,28 +98,38 @@ CREATE TABLE SlotsQueue (
   Y INT(11) NULL,
   W INT(11) NULL,
   H INT(11) NULL,
-  SubmittedBy VARCHAR(255) NOT NULL,
-  SubmissionDate DATETIME DEFAULT NULL,
-  ApprovedBy VARCHAR(255) NOT NULL,
-  ApprovedDate DATETIME DEFAULT NULL,
   PRIMARY KEY (RequestID)
-) ENGINE = InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+) ENGINE = InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS ChassisSlots;
+CREATE TABLE ChassisSlots (
+  TemplateID INT(11) NOT NULL,
+  Position INT(11) NOT NULL,
+  BackSide TINYINT(1) NOT NULL,
+  X INT(11) NULL,
+  Y INT(11) NULL,
+  W INT(11) NULL,
+  H INT(11) NULL,
+  LastModified DATETIME NOT NULL,
+  PRIMARY KEY (TemlateID)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS TemplatePortsQueue;
 CREATE TABLE TemplatePortsQueue (
-  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+  RequestID INT(11) NOT NULL,
   TemplateID INT(11) NOT NULL,
   PortNumber INT(11) NOT NULL,
   Label VARCHAR(40) NOT NULL,
-  MediaID INT(11) NOT NULL DEFAULT 0,
-  ColorID INT(11) NOT NULL DEFAULT 0,
-  PortNotes VARCHAR(80) NOT NULL,
-  SubmittedBy VARCHAR(255) NOT NULL,
-  SubmissionDate DATETIME DEFAULT NULL,
-  ApprovedBy VARCHAR(255) NOT NULL,
-  ApprovedDate DATETIME DEFAULT NULL,
   PRIMARY KEY(RequestID,PortNumber)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS TemplatePorts;
+CREATE TABLE TemplatePorts (
+  TemplateID INT(11) NOT NULL,
+  PortNumber INT(11) NOT NULL,
+  Label VARCHAR(40) NOT NULL,
+  PRIMARY KEY(TemplateID,PortNumber)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS TemplatePowerPortsQueue;
 CREATE TABLE TemplatePowerPortsQueue (
@@ -127,12 +137,44 @@ CREATE TABLE TemplatePowerPortsQueue (
   TemplateID INT(11) NOT NULL,
   PortNumber INT(11) NOT NULL,
   Label VARCHAR(40) NOT NULL,
-  PortNotes VARCHAR(80) NOT NULL,
   PRIMARY KEY(RequestID,PortNumber)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS TemplatePowerPorts;
+CREATE TABLE TemplatePowerPorts (
+  TemplateID INT(11) NOT NULL,
+  PortNumber INT(11) NOT NULL,
+  Label VARCHAR(40) NOT NULL,
+  PRIMARY KEY(TemplateID,PortNumber)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+DROP TABLE IF EXISTS CDUTemplatesQueue;
+CREATE TABLE CDUTemplateQueue (
+  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+  TemplateID int(11) NOT NULL,
+  ManufacturerID int(11) NOT NULL,
+  Model varchar(80) NOT NULL,
+  Managed int(1) NOT NULL,
+  ATS int(1) NOT NULL,
+  SNMPVersion varchar(2) NOT NULL DEFAULT '2c',
+  VersionOID varchar(80) NOT NULL,
+  Multiplier varchar(6),
+  OID1 varchar(80) NOT NULL,
+  OID2 varchar(80) NOT NULL,
+  OID3 varchar(80) NOT NULL,
+  ATSStatusOID varchar(80) NOT NULL,
+  ATSDesiredResult varchar(80) NOT NULL,
+  ProcessingProfile enum('SingleOIDWatts','SingleOIDAmperes','Combine3OIDWatts','Combine3OIDAmperes','Convert3PhAmperes'),
+  Voltage int(11) NOT NULL,
+  Amperage int(11) NOT NULL,
+  NumOutlets int(11) NOT NULL,
+  PRIMARY KEY (RequestID),
+  KEY ManufacturerID (ManufacturerID),
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+
+
 DROP TABLE IF EXISTS CDUTemplates;
-CREATE TABLE fac_CDUTemplate (
+CREATE TABLE CDUTemplates (
   TemplateID int(11) NOT NULL AUTO_INCREMENT,
   ManufacturerID int(11) NOT NULL,
   Model varchar(80) NOT NULL,
@@ -150,9 +192,7 @@ CREATE TABLE fac_CDUTemplate (
   Voltage int(11) NOT NULL,
   Amperage int(11) NOT NULL,
   NumOutlets int(11) NOT NULL,
-  GlobalID int(11) NOT NULL,
-  ShareToRepo tinyint(1) NOT NULL DEFAULT 0,
-  KeepLocal tinyint(1) NOT NULL DEFAULT 0,
+  LastModified DATETIME NOT NULL,
   PRIMARY KEY (TemplateID),
   KEY ManufacturerID (ManufacturerID),
   UNIQUE KEY (ManufacturerID, Model)

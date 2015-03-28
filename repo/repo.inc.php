@@ -339,14 +339,148 @@ class DeviceTemplatesQueue {
 	}
 }
 
+class CDUTemplatesQueue {
+	var $RequestID;
+	var $TemplateID;
+	var $ManufacturerID;
+	var $Model;
+	var $Managed;
+	var $ATS;
+	var $SNMPVersion;
+	var $VersionOID;
+	var $Multiplier;
+	var $OID1;
+	var $OID2;
+	var $OID3;
+	var $ATSStatusOID;
+	var $ATSDesiredResult;
+	var $ProcessingProfile;
+	var $Voltage;
+	var $Amperage;
+	var $NumOutlets;
+
+	function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
+	}
+
+	function getTemplate() {
+		$st = $this->prepare( "select * from CDUTemplatesQueue where RequestID=:RequestID" );
+
+		if ( ! $st->execute( array( ":RequestID"=>$this->RequestID ) ) ) {
+			return false;
+		}
+
+		$st->setFetchMode( PDO::FETCH_CLASS, "CDUTemlatesQueue" );
+		if ( $row = $st->fetch() ) {
+			foreach ( $row as $prop=>$val ) {
+				$this->$prop = $val;
+			}
+		}
+	}
+
+	function queueTemplate() {
+		$st = $this->prepare( "insert into CDUTemplatesQueue set RequestID=:RequestID, TemplateID=:TemplateID,
+			ManufacturerID=:ManufacturerID, Model=:Model, Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion,
+			VersionOID=:VersionOID, Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
+			ATSDesiredResule=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage, Amperage=:Amperage,
+			NumOutlets=:NumOutlets" );
+		return $st->execute( array( ":RequestID"=>$this->RequestID,
+			":TemplateID"=>$this->TemplateID,
+			":ManufacturerID"=>$this->ManufacturerID,
+			":Model"=>$this->Model,
+			":Managed"=>$this->Managed,
+			":ATS"=>$this->ATS,
+			":SNMPVersion"=>$this->SNMPVersion,
+			":VersionOID"=>$this->VersionOID,
+			":Multiplier"=>$this->Multiplier,
+			":OID1"=>$this->OID1,
+			":OID2"=>$this->OID2,
+			":OID3"=>$this->OID3,
+			":ATSStatusOID"=>$this->ATSStatusOID,
+			":ATSDesiredResult"=>$this->ATSDesiredResult,
+			":ProcessingProfile"=>$this->ProcessingProfile,
+			":Voltage"=>$this->Voltage,
+			":Amperage"=>$this->Amperage,
+			":NumOutlets"=>$this->NumOutlets ) );
+	}
+}
+
+class CDUTemplates {
+	var $TemplateID;
+	var $ManufacturerID;
+	var $Model;
+	var $Managed;
+	var $ATS;
+	var $SNMPVersion;
+	var $VersionOID;
+	var $Multiplier;
+	var $OID1;
+	var $OID2;
+	var $OID3;
+	var $ATSStatusOID;
+	var $ATSDesiredResult;
+	var $ProcessingProfile;
+	var $Voltage;
+	var $Amperage;
+	var $NumOutlets;
+
+
+        function prepare( $sql ) {
+                global $dbh;
+                return $dbh->prepare( $sql );
+        }
+
+	function queueTemplate() {
+
+	}
+
+}
+
+
+class ChassisSlotsQueue {
+	var $RequestID;
+	var $TemplateID;
+	var $Position;
+	var $BackSide;
+	var $X;
+	var $Y;
+	var $W;
+	var $H;
+
+
+        function prepare( $sql ) {
+                global $dbh;
+                return $dbh->prepare( $sql );
+        }
+
+	function getSlots() {
+		$st = $this->prepare( "select * from SlotsQueue where RequestID=:RequestID order by Position ASC" );
+		$st->execute( array( ":RequestID"=>$this->RequestID ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "ChassisSlotsQueue" );
+		$sList = array();
+		while ( $row = $st->fetch() ) {
+			$sList[] = $row;
+		}
+
+		return $sList;
+	}
+
+	function queueSlots( $sList ) {
+		$st = $this->prepare( "insert into SlotsQueue set RequestID=:RequestID, TemplateID=:TemplateID, Position=:Position, BackSide=:BackSide, X=:x, Y=:Y, W=:W, H=:H" );
+
+		foreach ( $sList as $s ) { 
+			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":Position"=>$s->Position, 
+				":BackSide"=>$s->BackSide, ":X", $s->X, ":Y"=>$s->Y, ":W"=>$s->W, ":H"=>$s->H ) );
+		}
+	}
+}
+
 class TemplatePortsQueue {
 	var $RequestID;
 	var $TemplateID;
 	var $PortNumber;
 	var $Label;
-	var $MediaID;
-	var $ColorID;
-	var $PortNotes;
 
 	function prepare( $sql ) {
 		global $dbh;
@@ -354,17 +488,86 @@ class TemplatePortsQueue {
 		return $dbh->prepare( $sql );
 	}
 
+	function getPorts() {
+		$st = $this->prepare( "select * from TemplatePortsQueue where RequestID=:RequestID order by PortNumber ASC" );
+		$st->execute( array( ":RequestID"=>$this->RequestID ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "TemplatePortsQueue" );
+		$tpList = array();
+		while ( $row = $st->fetch() ) {
+			$tpList[] = $row;
+		}
+
+		return $tpList;
+	}
+
 	function queuePorts( $tpList ) {
-		$st = $this->prepare( "insert into TemplatePortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber,
-			Label=:Label, MediaID=:MediaID, ColorID=:ColorID, PortNotes=:PortNotes" );
+		$st = $this->prepare( "insert into TemplatePortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
 
 		foreach( $tpList as $tp ) {
-			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$tp->PortNumber,
-				":Label"=>$tp->Label, ":MediaID"=>$tp->MediaID, ":ColorID"=>$tp->ColorID, ":PortNotes"=>$tp->PortNotes ) );
+			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$tp->PortNumber, ":Label"=>$tp->Label ) );
 		}
 	}
 }
 
+class TemplatePorts {
+	var $TemplateID;
+	var $PortNumber;
+	var $Label;
+
+
+        function prepare( $sql ) {
+                global $dbh;
+                return $dbh->prepare( $sql );
+        }
+
+
+}
+
+class TemplatePowerPortsQueue {
+	var $RequestID;
+	var $TemplateID;
+	var $PortNumber;
+	var $Label;
+
+
+        function prepare( $sql ) {
+                global $dbh;
+                return $dbh->prepare( $sql );
+        }
+
+	function getPorts() {
+		$st = $this->prepare( "select * from TemplatePowerPortsQueue where RequestID=:RequestID order by PortNumber ASC" );
+		$st->execute( array( ":RequestID"=>$this->RequestID ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "TemplatePowerPortsQueue" );
+		$ppList = array();
+		while ( $row = $st->fetch() ) {
+			$ppList[] = $row;
+		}
+
+		return $ppList;
+	}
+
+	function queuePorts( $ppList ) {
+		$st = $this->prepare( "insert into TemplatePowerPortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
+
+		foreach ( $ppList as $p ) {
+			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$p->PortNumber, ":Label"=>$p->Label ) );
+		}
+	}
+}
+
+class TemplatePowerPorts {
+	var $TemplateID;
+	var $PortNumber;
+	var $Label;
+
+
+        function prepare( $sql ) {
+                global $dbh;
+                return $dbh->prepare( $sql );
+        }
+
+}
 
 class Moderators {
 	/* Simple authorization schema:

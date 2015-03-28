@@ -371,15 +371,22 @@
 
 		$t = new DeviceTemplatesQueue();
 		$tp = new TemplatePortsQueue();
+		// $sc = new SlotCoordinatesQueue();
+		// $pp = new PowerPortsQueue();
 
-		if ( $dType == "Sensor" ) {
-		} elseif ( $dType == "Sensor" ) {
-		} else {
-			foreach ( $t as $prop => $value ) {
-				$t->$prop = isset( $vars->template->$prop ) ? $vars->template->$prop : '';
+		foreach ( $t as $prop => $value ) {
+			$t->$prop = isset( $vars->template->$prop ) ? $vars->template->$prop : '';
+		}
+
+		if ( $dType == "Chassis" ) {
+			if ( is_array( $vars->slotcoordinates ) ) {
+				$sc->queueCoords( $vars->slotcoordinates );
 			}
+		}
 
-			if ( $dType == "Chassis" ) {
+		if ( $dType == "CDU" ) {
+			if ( is_array( $vars->powerports ) ) {
+				$pp->queuePorts( $vars->powerports );
 			}
 		}
 
