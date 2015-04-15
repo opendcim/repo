@@ -180,7 +180,7 @@
                         }
 			if ( $tmp->FrontPictureFile != "" ) {
 				$tmpl["FrontPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->FrontPictureFile;
-			]
+			}
 			if ( $tmp->RearPictureFile != "" ) {
 				$tmpl["RearPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->RearPictureFile;
 			}
