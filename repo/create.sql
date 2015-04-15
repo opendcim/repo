@@ -55,7 +55,6 @@ CREATE TABLE DeviceTemplatesQueue (
   DeviceType varchar(23) NOT NULL default 'Server',
   PSCount int(11) NOT NULL,
   NumPorts int(11) NOT NULL,
-  Notes text NOT NULL,
   FrontPictureFile VARCHAR(45) NOT NULL,
   RearPictureFile VARCHAR(45) NOT NULL,
   ChassisSlots SMALLINT(6) NOT NULL,
@@ -78,7 +77,6 @@ CREATE TABLE DeviceTemplates (
   DeviceType varchar(23) NOT NULL default 'Server',
   PSCount int(11) NOT NULL,
   NumPorts int(11) NOT NULL,
-  Notes text NOT NULL,
   FrontPictureFile VARCHAR(45) NOT NULL,
   RearPictureFile VARCHAR(45) NOT NULL,
   ChassisSlots SMALLINT(6) NOT NULL,
@@ -110,8 +108,7 @@ CREATE TABLE ChassisSlots (
   Y INT(11) NULL,
   W INT(11) NULL,
   H INT(11) NULL,
-  LastModified DATETIME NOT NULL,
-  PRIMARY KEY (TemlateID)
+  PRIMARY KEY (TemplateID)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS TemplatePortsQueue;
@@ -121,7 +118,7 @@ CREATE TABLE TemplatePortsQueue (
   PortNumber INT(11) NOT NULL,
   Label VARCHAR(40) NOT NULL,
   PRIMARY KEY(RequestID,PortNumber)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 DROP TABLE IF EXISTS TemplatePorts;
 CREATE TABLE TemplatePorts (
@@ -150,10 +147,8 @@ CREATE TABLE TemplatePowerPorts (
 
 DROP TABLE IF EXISTS CDUTemplatesQueue;
 CREATE TABLE CDUTemplateQueue (
-  RequestID INT(11) NOT NULL AUTO_INCREMENT,
+  RequestID INT(11) NOT NULL,
   TemplateID int(11) NOT NULL,
-  ManufacturerID int(11) NOT NULL,
-  Model varchar(80) NOT NULL,
   Managed int(1) NOT NULL,
   ATS int(1) NOT NULL,
   SNMPVersion varchar(2) NOT NULL DEFAULT '2c',
@@ -167,17 +162,13 @@ CREATE TABLE CDUTemplateQueue (
   ProcessingProfile enum('SingleOIDWatts','SingleOIDAmperes','Combine3OIDWatts','Combine3OIDAmperes','Convert3PhAmperes'),
   Voltage int(11) NOT NULL,
   Amperage int(11) NOT NULL,
-  NumOutlets int(11) NOT NULL,
-  PRIMARY KEY (RequestID),
-  KEY ManufacturerID (ManufacturerID),
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+  PRIMARY KEY (RequestID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 DROP TABLE IF EXISTS CDUTemplates;
 CREATE TABLE CDUTemplates (
-  TemplateID int(11) NOT NULL AUTO_INCREMENT,
-  ManufacturerID int(11) NOT NULL,
-  Model varchar(80) NOT NULL,
+  TemplateID int(11) NOT NULL,
   Managed int(1) NOT NULL,
   ATS int(1) NOT NULL,
   SNMPVersion varchar(2) NOT NULL DEFAULT '2c',
@@ -191,12 +182,32 @@ CREATE TABLE CDUTemplates (
   ProcessingProfile enum('SingleOIDWatts','SingleOIDAmperes','Combine3OIDWatts','Combine3OIDAmperes','Convert3PhAmperes'),
   Voltage int(11) NOT NULL,
   Amperage int(11) NOT NULL,
-  NumOutlets int(11) NOT NULL,
   LastModified DATETIME NOT NULL,
-  PRIMARY KEY (TemplateID),
-  KEY ManufacturerID (ManufacturerID),
-  UNIQUE KEY (ManufacturerID, Model)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
+  PRIMARY KEY (TemplateID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+DROP TABLE IF EXISTS SensorTemplatesQueue;
+CREATE TABLE SensorTemplatesQueue (
+  RequestID int(11) NOT NULL,
+  TemplateID int(11) NOT NULL,
+  SNMPVersion varchar(2) NOT NULL,
+  TemperatureOID varchar(256) NOT NULL,
+  HumidityOID varchar(256) NOT NULL,
+  TempMultiplier float,
+  HumidityMultiplier float,
+  mUnits enum('english','metric'),
+  PRIMARY KEY(RequestID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+  
 DROP TABLE IF EXISTS SensorTemplates;
+CREATE TABLE SensorTemplates (
+  TemplateID int(11) NOT NULL,
+  SNMPVersion varchar(2) NOT NULL,
+  TemperatureOID varchar(256) NOT NULL,
+  HumidityOID varchar(256) NOT NULL,
+  TempMultiplier float,
+  HumidityMultiplier float,
+  mUnits enum('english','metric'),
+  PRIMARY KEY(TemplateID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

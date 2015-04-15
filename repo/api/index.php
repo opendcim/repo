@@ -22,9 +22,12 @@
 	$app->get( '/manufacturer/pending/byid/:requestid', 'authenticate', 'getPendingManufacturerByID' );
 	
 	$app->put( '/manufacturer', 'authenticate', 'queueManufacturer' );
-	$app->put( '/manufacturer/approve', 'authenticate', 'approveManufacturer' );
+
+	$app->post( '/manufacturer/approve', 'authenticate', 'approveManufacturer' );
+	$app->post( '/template/approve', 'authenticate', 'approveTemplate' );
 
 	$app->put( '/template', 'authenticate', 'queueTemplate' );
+	$app->post( '/template/pending/delete/:requestid', 'authenticate', 'deletePendingTemplate' );
 	$app->post( '/template/addpictures/:requestid', 'authenticate', 'queuePictures' );
 
 /**
@@ -156,23 +159,83 @@
 		echoRespnse( 200, $response );
 	}
 
-	function getTemplateById( $templateid ) {
-		$dt = new DeviceTemplates();
-		$dtList = $dt->getDeviceTemplateById( $templateid );
+	function getTemplateByID( $templateid ) {
+                 // This is the "meat" of the templates, so any ancillary objects need to be returned as well
+                $dt = new DeviceTemplates();
+		$ct = new CDUTemplates();
+		$sen = new SensorTemplates();
+                $ts = new ChassisSlots();
+                $tp = new TemplatePorts();
+                $tpp = new TemplatePowerPorts();
+
+                $dtList = $dt->getDeviceTemplate( $templateid );
 
                 $response['error'] = false;
                 $response['errorcode'] = 200;
                 $response['templates'] = array();
-               	foreach ( $dtList as $devtmp ) {
-			$tmp = array();
-			foreach ( $devtmp as $prop=>$value ) {
-				$tmp[$prop] = $value;
+                foreach( $dtList as $tmp ) {
+                        $tmpl = array();
+                        foreach( $tmp as $prop=>$value ) {
+                                $tmpl[$prop] = $value;
+                        }
+			if ( $tmp->FrontPictureFile != "" ) {
+				$tmpl["FrontPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->FrontPictureFile;
+			]
+			if ( $tmp->RearPictureFile != "" ) {
+				$tmpl["RearPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->RearPictureFile;
 			}
-			array_push( $response['templates'], $tmp );
-		}
+                        if ( $tmp->DeviceType == "Chassis" ) {
+                                $sList = $ts->getSlots( $templateid );
+				error_log( print_r( $sList, true ));
+                                $tmpl['slots'] = array();
+                                foreach ( $sList as $slot ) {
+                                        $tmpSlot = array();
+                                        foreach ( $slot as $prop=>$value ) {
+                                                $tmpSlot[$prop] = $value;
+                                        }
+                                        $tmpl['slots'][] = $tmpSlot;
+                                }
+                        }
+			if ( $tmp->DeviceType == "CDU" ) {
+				$ct->getTemplate( $templateid );
+
+                                $tmpl['cdutemplate'] = array();
+                                foreach ( $ct as $prop=>$value ) {
+                                        $tmpl['cdutemplate'][$prop] = $value;
+                                }
+			}
+                        if ( $tmp->DeviceType == "Sensor" ) {
+                                $tmpl['sensortemplate'] = array();
+
+                                $sen->getTemplate( $templateid );
+                                foreach ( $sen as $prop=>$val ) {
+                                        $tmpl["sensortemplate"][$prop] = $val;
+                                }
+                        }
+                        $pList = $tp->getPorts( $templateid );
+                        $tmpl['ports'] = array();
+                        foreach( $pList as $port ) {
+                                $tmpPort = array();
+                                foreach( $port as $prop=>$value ) {
+                                        $tmpPort[$prop] = $value;
+                                }
+                                $tmpl['ports'][] = $tmpPort;
+                        }
+
+                        $ppList = $tpp->getPorts( $templateid );
+                        $tmpl['powerports'] = array();
+                        foreach ( $ppList as $pp ) {
+                                $tmpPwr = array();
+                                foreach ( $pp as $prop=>$value ) {
+                                        $tmpPwr[$prop] = $value;
+                                }
+                                $tmpl['powerports'][] = $tmpPwr;
+                        }
+
+                        array_push( $response['templates'], $tmpl );
+                }
 
                 echoRespnse( 200, $response );
- 
 	}
 
 	function getTemplateByManufacturer( $manufacturerid ) {
@@ -194,6 +257,7 @@
 	}
 
 	function getPendingTemplate() {
+		// This is more of a high level list, for picking what to drill down to, so none of the ancillary objects are returned
 		$dt = new DeviceTemplatesQueue();
 		$dtList = $dt->viewStatus();
 
@@ -212,7 +276,14 @@
 	}
 
 	function getPendingTemplateByID( $requestid ) {
+		// This is the "meat" of the templates, so any ancillary objects need to be returned as well
 		$dt = new DeviceTemplatesQueue();
+		$ct = new CDUTemplatesQueue();
+		$sen = new SensorTemplatesQueue();
+		$ts = new ChassisSlotsQueue();
+		$tp = new TemplatePortsQueue();
+		$tpp = new TemplatePowerPortsQueue();
+
 		$dtList = $dt->viewStatus( $requestid );
 
 		$response['error'] = false;
@@ -223,6 +294,53 @@
                         foreach( $tmp as $prop=>$value ) {
                                 $tmpl[$prop] = $value;
                         }
+			if ( $tmp->DeviceType == "Chassis" ) {
+				$sList = $ts->getSlots( $requestid );
+				$tmpl['slots'] = array();
+				foreach ( $sList as $slot ) {
+					$tmpSlot = array();
+					foreach ( $slot as $prop=>$value ) {
+						$tmpSlot[$prop] = $value;
+					}
+					$tmpl['slots'][] = $tmpSlot;
+				}
+			}
+			if ( $tmp->DeviceType == "CDU" ) {
+				$ct->getTemplate( $requestid );
+
+				$tmpl['cdutemplate'] = array();
+				foreach ( $ct as $prop=>$value ) {
+					$tmpl['cdutemplate'][$prop] = $value;
+				}
+			}
+			if ( $tmp->DeviceType == "Sensor" ) {
+				$tmpl['sensortemplate'] = array();
+
+				$sen->getTemplate( $requestid );
+				foreach ( $sen as $prop=>$val ) {
+					$tmpl["sensortemplate"][$prop] = $val;
+				}
+			}
+			$pList = $tp->getPorts( $requestid );
+			$tmpl['ports'] = array();
+			foreach( $pList as $port ) {
+				$tmpPort = array();
+				foreach( $port as $prop=>$value ) {
+					$tmpPort[$prop] = $value;
+				}
+				$tmpl['ports'][] = $tmpPort;
+			}
+
+			$ppList = $tpp->getPorts( $requestid );
+			$tmpl['powerports'] = array();
+			foreach ( $ppList as $pp ) {
+				$tmpPwr = array();
+				foreach ( $pp as $prop=>$value ) {
+					$tmpPwr[$prop] = $value;
+				}
+				$tmpl['powerports'][] = $tmpPwr;
+			}
+			
                         array_push( $response['templatequeue'], $tmpl );
                 }
 
@@ -313,29 +431,8 @@
 	}
 
 //
-//	URL:  /api/manufacturer
-//	Method: PUT
-//	Params: JSON array manufacturer of all attributes defined in database table
-//	Returns: 200 if successful
+//	POST Operations (Updates to existing data)
 //
-	function queueManufacturer() {
-		$app = \Slim\Slim::getInstance();
-		$response = array();
-		$m = new ManufacturersQueue();
-		$m->Name = $app->request->put('Name');
-		if ( $m->queueManufacturer() ) {
-			$response['error'] = false;
-			$response['errorcode'] = 200;
-			$response['message'] = 'Manufacturer addition has been submitted for approval.';
-			$response['manufacturer'] = array( 'RequestID'=>$m->RequestID, 'Name'=>$m->Name );
-			echoRespnse( 200, $response );
-		} else {
-			$response['error'] = true;
-			$response['errorcode'] = 403;
-			$response['message'] = 'Manufacturer name already in pending submission queue.';
-			echoRespnse( 403, $response );
-		}
-	}
 
 	function approveManufacturer() {
 		global $currUser;
@@ -359,53 +456,102 @@
 		}
 	}
 
-	function queueTemplate() {
+	function approveTemplate() {
 		global $currUser;
+
 		$app = \Slim\Slim::getInstance();
-		$vars = json_decode( $app->request()->getBody() );
-		$dType = @$vars->template->DeviceType;
+		$response = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+		$response['message'] = "Template has been approved.";
+
+		$dt = new DeviceTemplatesQueue();
+		$vars = json_decode( $app->request->getBody() );
+		foreach ( $dt as $prop=>$value ) {
+			$dt->$prop = @$vars->$prop;
+		}
+
+		if ( ! $dt->approveRequest( $currUser ) ) {
+			$response['error'] = true;
+			$response['errorcode'] = 400;
+			$response['message'] = 'Error processing request.';
+		}
+
+		if ( is_array( @$vars->powerports ) ) {
+			$pp = new TemplatePowerPortsQueue();
+			$tpp = new TemplatePowerPorts;
+			$tpp->flushPorts( $dt->TemplateID );
+			foreach ( $vars->powerports as $pPort ) {
+				foreach ( $pp as $prop=>$value ) {
+					$pp->$prop = @$pPort->$prop;
+				}
+				$pp->TemplateID = $dt->TemplateID;
+ 				$pp->approveRequest();
+			}
+		}
+		if ( is_array( @$vars->ports ) ) {
+			// Flush out any existing ports
+			$tp = new TemplatePorts();
+			$tp->flushPorts( $dt->TemplateID );
+
+			$p = new TemplatePortsQueue();
+			foreach ( $vars->ports as $Port ) {
+				foreach ( $p as $prop=>$value ) {
+					$p->$prop = @$Port->$prop;
+				}
+				$p->TemplateID = $dt->TemplateID;
+				$p->approveRequest();
+			}
+		}
+		if ( is_array( @$vars->slots ) ) {
+			$tsc = new ChassisSlots();
+			$tsc->flushSlots( $dt->TemplateID );
+
+			$s = new ChassisSlotsQueue();
+			foreach( $vars->slots as $slot ) {
+				foreach ( $s as $prop=>$value ) {
+					$s->$prop = @$slot->$prop;
+				}
+				$s->TemplateID = $dt->TemplateID;
+				$s->approveRequest();
+			}
+		}
+		if ( $dt->DeviceType == "CDU" && is_object( $vars->cdutemplate ) ) {
+			$ct = new CDUTemplatesQueue();
+			foreach ( $vars->cdutemplate as $prop=>$val ) {
+				$ct->$prop = $val;
+			}
+			$ct->TemplateID = $dt->TemplateID;
+
+			$ct->approveRequest();
+		}
+		if ( $dt->DeviceType == "Sensor" && is_object( $vars->sensortemplate ) ) {
+			$sen = new SensorTemplatesQueue();
+			foreach ( $vars->sensortemplate as $prop=>$val ) {
+				$sen->$prop = $val;
+			}
+			$sen->TemplateID = $dt->TemplateID;
+
+			$sen->approveRequest();
+		}
+
+		echoRespnse( $response['errorcode'], $response );
+	}
+
+	function deletePendingTemplate( $RequestID ) {
+		global $currUser;
 
 		$response = array();
 		$response['error'] = false;
 		$response['errorcode'] = 200;
 
 		$t = new DeviceTemplatesQueue();
-		$tp = new TemplatePortsQueue();
-		// $sc = new SlotCoordinatesQueue();
-		// $pp = new PowerPortsQueue();
-
-		foreach ( $t as $prop => $value ) {
-			$t->$prop = isset( $vars->template->$prop ) ? $vars->template->$prop : '';
-		}
-
-		if ( $dType == "Chassis" ) {
-			if ( is_array( $vars->slotcoordinates ) ) {
-				$sc->queueCoords( $vars->slotcoordinates );
+		if ( $currUser->Administrator ) {
+			if ( ! $t->deleteRequest( $RequestID ) ) {
+				$response['error'] = true;
+				$response['errorcode'] = 403;
+				$response['message'] = 'Error processing request.';
 			}
-		}
-
-		if ( $dType == "CDU" ) {
-			if ( is_array( $vars->powerports ) ) {
-				$pp->queuePorts( $vars->powerports );
-			}
-		}
-
-		$t->SubmittedBy = $currUser->UserID;
-		if ( $t->queueDeviceTemplate() ) {
-			$response['error'] = false;
-			$response['errorcode'] = 200;
-			$response['message'] = 'Device template queued for approval.';
-			$response['template'] = array( "RequestID" => $t->RequestID );
-		} else {
-			$response['error'] = true;
-			$response['errorcode'] = 403;
-			$response['message'] = 'Error processing request.';
-		}
-
-		$tp->RequestID = $t->RequestID;
-		$tp->TemplateID = $t->TemplateID;
-		if ( is_array( $vars->templateports ) ) {
-			$tp->queuePorts( $vars->templateports );
 		}
 
 		echoRespnse( $response['errorcode'], $response );
@@ -426,6 +572,7 @@
 				$response['error'] = true;
 				$response['errorcode'] = 400;
 				$response['message'] = 'Unable to relocate temporary file.';
+				error_log( "Error saving file submission " . $_FILES["front"]["name"] );
 			}
 		}
 
@@ -436,11 +583,119 @@
 				$response['error'] = true;
 				$response['errorcode'] = 400;
 				$response['message'] = 'Unable to relocate temporary file.';
+				error_log( "Error saving file submission " . $_FILES["rear"]["name"] );
 			}
 		}
 
 		echoRespnse( $response['errorcode'], $response );
 
+	}
+
+//
+//	PUT Operations (Creation of New Data)
+//
+	function queueManufacturer() {
+		$app = \Slim\Slim::getInstance();
+		$response = array();
+		$m = new ManufacturersQueue();
+		$m->Name = $app->request->put('Name');
+		if ( $m->queueManufacturer() ) {
+			$response['error'] = false;
+			$response['errorcode'] = 200;
+			$response['message'] = 'Manufacturer addition has been submitted for approval.';
+			$response['manufacturer'] = array( 'RequestID'=>$m->RequestID, 'Name'=>$m->Name );
+			echoRespnse( 200, $response );
+		} else {
+			$response['error'] = true;
+			$response['errorcode'] = 403;
+			$response['message'] = 'Manufacturer name already in pending submission queue.';
+			echoRespnse( 403, $response );
+		}
+	}
+
+	function queueTemplate() {
+		global $currUser;
+		$app = \Slim\Slim::getInstance();
+		$vars = json_decode( $app->request()->getBody() );
+		$dType = @$vars->template->DeviceType;
+
+		$response = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+
+		$t = new DeviceTemplatesQueue();
+		$tp = new TemplatePortsQueue();
+		$sc = new ChassisSlotsQueue();
+		$pp = new TemplatePowerPortsQueue();
+
+		foreach ( $t as $prop => $value ) {
+			$t->$prop = isset( $vars->template->$prop ) ? $vars->template->$prop : '';
+		}
+
+		$t->TemplateID = @$vars->template->GlobalID;
+
+		$t->SubmittedBy = $currUser->UserID;
+
+		if ( $t->queueDeviceTemplate() ) {
+			$response['error'] = false;
+			$response['errorcode'] = 200;
+			$response['message'] = 'Device template queued for approval.';
+			$response['template'] = array( "RequestID" => $t->RequestID );
+		} else {
+			$response['error'] = true;
+			$response['errorcode'] = 403;
+			$response['message'] = 'Error processing request.';
+		}
+
+		$sc->RequestID = $t->RequestID;
+		$sc->TemplateID = $t->TemplateID;
+		if ( $dType == "Chassis" ) {
+			if ( is_array( @$vars->slots ) ) {
+				$sc->queueSlots( $vars->slots );
+			}
+		}
+
+		if ( $dType == "CDU" ) {
+			$ct = new CDUTemplatesQueue();
+			if ( @is_object( $vars->cdutemplate ) ) {
+				foreach ( $vars->cdutemplate as $prop=>$value ) {
+					$ct->$prop = $value;
+				}
+
+				$ct->RequestID = $t->RequestID;
+				$ct->TemplateID = $t->TemplateID;
+
+				$ct->queueTemplate();
+			}
+		}
+
+		if ( $dType == "Sensor" ) {
+			$sen = new SensorTemplatesQueue();
+			if ( @is_object( $vars->sensortemplate ) ) {
+				foreach ( $vars->sensortemplate as $prop=>$val ) {
+					$sen->$prop = $val;
+				}
+
+				$sen->RequestID = $t->RequestID;
+				$sen->TemplateID = $t->TemplateID;
+
+				$sen->queueTemplate();
+			}
+		}
+
+		$tp->RequestID = $t->RequestID;
+		$tp->TemplateID = $t->TemplateID;
+		if ( @is_array( $vars->templateports ) ) {
+			$tp->queuePorts( $vars->templateports );
+		}
+
+		$pp->RequestID = $t->RequestID;
+		$pp->TemplateID = $t->TemplateID;
+		if ( @is_array( $vars->templatepowerports ) ) {
+			$pp->queuePorts( $vars->templatepowerports );
+		}
+
+		echoRespnse( $response['errorcode'], $response );
 	}
 
 $app->run();

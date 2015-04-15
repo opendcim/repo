@@ -157,7 +157,6 @@ class DeviceTemplates {
 	var $DeviceType;
 	var $PSCount;
 	var $NumPorts;
-	var $Notes;
 	var $FrontPictureFile;
 	var $RearPictureFile;
 	var $ChassisSlots;
@@ -187,19 +186,6 @@ class DeviceTemplates {
 		return $templateList;
 	}
 
-	function getDeviceTemplatebyId( $templateid ) {
-		$st = $this->prepare( "select * from DeviceTemplates where TemplateID=:TemplateID" );
-		$st->execute( array( ":TemplateID"=>$templateid ) );
-
-		$st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplates" );
-		$templateList = array();
-		while ( $t = $st->fetch() ) {
-			$templateList[] = $t;
-		}
-
-		return $templateList;
-	}
-
 	function getDeviceTemplateByMFG( $manufacturerid ) {
 		$st = $this->prepare( "select * from DeviceTemplates where ManufacturerID=:ManufacturerID order by Model ASC" );
 		$st->execute( array( ":ManufacturerID"=>$manufacturerid ) );
@@ -213,10 +199,10 @@ class DeviceTemplates {
 		return $templateList;
 
 	}
-
 }
 
 class DeviceTemplatesQueue {
+	var $RequestID;
         var $TemplateID;
         var $ManufacturerID;
         var $Model;
@@ -292,6 +278,111 @@ class DeviceTemplatesQueue {
                 return $tmpList;
         }
 
+	function deleteRequest( $RequestID ) {
+		$sql = array( "delete from CDUTemplatesQueue where RequestID=:RequestID",
+				"delete from ChassisSlotsQueue where RequestID=:RequestID",
+				"delete from TemplatePortsQueue where RequestID=:RequestID",
+				"delete from TemplatePowerPortsQueue where RequestID=:RequestID",
+				"delete from DeviceTemplatesQueue where RequestID=:RequestID" );
+
+		foreach ( $sql as $s ) {
+			$st = $this->prepare( $s );
+			$st->execute( array( ":RequestID"=>$RequestID ) );
+		}
+
+		array_map( "unlink", glob( "/home/dcim/repo/repo/images/submitted/$RequestID.*" ) );
+
+		return true;
+	}
+
+	function approveRequest( $currUser ) {
+		// Check for an existing Make & Model combination, and if so, turn this into an update
+		$st = $this->prepare( "select TemplateID,count(*) as Total from DeviceTemplates where ManufacturerID=:ManufacturerID and ucase(Model)=ucase(:Model)" );
+		$st->execute( array( ":ManufacturerID"=>$this->ManufacturerID, ":Model"=>$this->Model ) );
+		$res = $st->fetch();
+
+		if ( $res['Total'] > 0 ) {
+			$this->TemplateID = $res['TemplateID'];
+		}
+
+		// Grab the original file names before we get started
+                $st = $this->prepare( "select * from DeviceTemplatesQueue where RequestID=:RequestID" );
+                $st->execute( array( ":RequestID" => $this->RequestID ) );
+                $st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplatesQueue" );
+                if ( $req = $st->fetch() ) {
+			$srcFront = sprintf( "/home/dcim/repo/repo/images/submitted/%d.%s", $this->RequestID, $req->FrontPictureFile );
+			$srcRear = sprintf( "/home/dcim/repo/repo/images/submitted/%d.%s", $this->RequestID, $req->RearPictureFile );
+                        // If the TemplateID is set in the request, this is an update
+                        if ( $this->TemplateID > 0  ) {
+                                $st = $this->prepare( "update DeviceTemplates set ManufacturerID=:ManufacturerID,
+					Model=:Model, Height=:Height, Weight=:Weight, Wattage=:Wattage, DeviceType=:DeviceType,
+					PSCount=:PSCount, NumPorts=:NumPorts, FrontPictureFile=:FrontPictureFile,
+					RearPictureFile=:RearPictureFile, ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
+					LastModified=now() where TemplateID=:TemplateID" );
+                                $st->execute( array( ":ManufacturerID"=>$this->ManufacturerID,
+					":Model"=>$this->Model,
+					":Height"=>$this->Height,
+					":Weight"=>$this->Weight,
+					":Wattage"=>$this->Wattage,
+					":DeviceType"=>$this->DeviceType,
+					":PSCount"=>$this->PSCount,
+					":NumPorts"=>$this->NumPorts,
+					":FrontPictureFile"=>$this->FrontPictureFile,
+					":RearPictureFile"=>$this->RearPictureFile,
+					":ChassisSlots"=>$this->ChassisSlots,
+					":RearChassisSlots"=>$this->RearChassisSlots,
+					":TemplateID"=>$this->TemplateID ) );
+                        } else {
+                                $st = $this->prepare( "insert into DeviceTemplates set ManufacturerID=:ManufacturerID,
+					Model=:Model, Height=:Height, Weight=:Weight, Wattage=:Wattage, DeviceType=:DeviceType,
+					PSCount=:PSCount, NumPorts=:NumPorts, FrontPictureFile=:FrontPictureFile,
+					RearPictureFile=:RearPictureFile, ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
+					LastModified=now()" );
+                                $st->execute( array( ":ManufacturerID"=>$this->ManufacturerID,
+					":Model"=>$this->Model,
+					":Height"=>$this->Height,
+					":Weight"=>$this->Weight,
+					":Wattage"=>$this->Wattage,
+					":DeviceType"=>$this->DeviceType,
+					":PSCount"=>$this->PSCount,
+					":NumPorts"=>$this->NumPorts,
+					":FrontPictureFile"=>$this->FrontPictureFile,
+					":RearPictureFile"=>$this->RearPictureFile,
+					":ChassisSlots"=>$this->ChassisSlots,
+					":RearChassisSlots"=>$this->RearChassisSlots ) );
+                                $this->TemplateID=$this->lastInsertId();
+
+				// We just assigned a TemplateID, so propagate that to all the other tables depending on it
+				$tables = array( "TemplatePowerPortsQueue", "TemplatePortsQueue", "SlotsQueue", "CDUTemplatesQueue", "SensorTemlatesQueue" );
+				foreach ( $tables as $table ) {
+					$st = $this->prepare( "update $table set TemplateID=:TemplateID where RequestID=:RequestID" );
+					$st->execute( array( ":TemplateID"=>$this->TemplateID, ":RequestID"=>$this->RequestID ) );
+				}
+             		}
+
+			// Remove any previous images for this TemplateID
+			$targetPattern = "images/approved/" . $this->TemplateID . "*";
+			array_map( "unlink", glob( $targetPattern ));
+
+
+			$tgtFront = sprintf( "/home/dcim/repo/repo/images/approved/%d.%s", $this->TemplateID, $this->FrontPictureFile );
+			$tgtRear = sprintf( "/home/dcim/repo/repo/images/approved/%d.%s", $this->TemplateID, $this->RearPictureFile );
+
+			@rename( $srcFront, $tgtFront );
+			@rename( $srcRear, $tgtRear );
+
+	                $this->ApprovedBy = $currUser->UserID;
+
+       	                $st = $this->prepare( "update DeviceTemplatesQueue set ApprovedBy=:UserID,
+       	                        TemplateID=:TemplateID, ApprovedDate=now() where RequestID=:RequestID" );
+       	                $st->execute( array( ":UserID"=>$currUser->UserID,
+       	                        ":TemplateID"=>$this->TemplateID, ":RequestID"=>$this->RequestID ) );
+       	        } else {
+       	                error_log( "Fetch failed for request=" . $this->RequestID );
+       	        }
+
+		return true;
+	}
 
 	function queueDeviceTemplate() {
 		$this->makeSafe();
@@ -299,12 +390,12 @@ class DeviceTemplatesQueue {
 		// Make sure that we don't violate unique keys
 		// If the TemplateID > 0, this is an update to a record
 		if ( $this->TemplateID == 0 ) {
-			$st = $this->prepare( "select count(*) as Total from DeviceTemplates where ManufacturerID=:ManufacturerID and ucase(Model)=ucase(:Model)" );
+			$st = $this->prepare( "select TemplateID, count(*) as Total from DeviceTemplates where ManufacturerID=:ManufacturerID and ucase(Model)=ucase(:Model)" );
 			$st->execute( array( ":ManufacturerID"=>$this->ManufacturerID, ":Model"=>$this->Model ) );
 			$row = $st->fetch();
 
 			if ( $row["Total"] > 0 ) {
-				return false;
+				$this->TemplateID = $row["TemplateID"];
 			}
 		}
 
@@ -313,7 +404,7 @@ class DeviceTemplatesQueue {
 		$st = $this->prepare( "insert into DeviceTemplatesQueue set TemplateID=:TemplateID,
 			ManufacturerID=:ManufacturerID, Model=:Model, Height=:Height,
 			Weight=:Weight, Wattage=:Wattage, DeviceType=:DeviceType,
-			PSCount=:PSCount, NumPorts=:NumPorts, Notes=:Notes,
+			PSCount=:PSCount, NumPorts=:NumPorts,
 			FrontPictureFile=:FrontPictureFile, RearPictureFile=:RearPictureFile,
 			ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
 			SubmittedBy=:SubmittedBy, SubmissionDate=now()");
@@ -326,7 +417,6 @@ class DeviceTemplatesQueue {
 			":DeviceType"=>$this->DeviceType,
 			":PSCount"=>$this->PSCount,
 			":NumPorts"=>$this->NumPorts,
-			":Notes"=>$this->Notes,
 			":FrontPictureFile"=>$this->FrontPictureFile,
 			":RearPictureFile"=>$this->RearPictureFile,
 			":ChassisSlots"=>$this->ChassisSlots,
@@ -334,7 +424,6 @@ class DeviceTemplatesQueue {
 			":SubmittedBy"=>$this->SubmittedBy ) );
 
 		$this->RequestID = $this->lastInsertId();
-
 		return $this->RequestID;
 	}
 }
@@ -342,8 +431,6 @@ class DeviceTemplatesQueue {
 class CDUTemplatesQueue {
 	var $RequestID;
 	var $TemplateID;
-	var $ManufacturerID;
-	var $Model;
 	var $Managed;
 	var $ATS;
 	var $SNMPVersion;
@@ -357,21 +444,20 @@ class CDUTemplatesQueue {
 	var $ProcessingProfile;
 	var $Voltage;
 	var $Amperage;
-	var $NumOutlets;
 
 	function prepare( $sql ) {
 		global $dbh;
 		return $dbh->prepare( $sql );
 	}
 
-	function getTemplate() {
+	function getTemplate( $RequestID ) {
 		$st = $this->prepare( "select * from CDUTemplatesQueue where RequestID=:RequestID" );
 
-		if ( ! $st->execute( array( ":RequestID"=>$this->RequestID ) ) ) {
+		if ( ! $st->execute( array( ":RequestID"=>$RequestID ) ) ) {
 			return false;
 		}
 
-		$st->setFetchMode( PDO::FETCH_CLASS, "CDUTemlatesQueue" );
+		$st->setFetchMode( PDO::FETCH_CLASS, "CDUTemplatesQueue" );
 		if ( $row = $st->fetch() ) {
 			foreach ( $row as $prop=>$val ) {
 				$this->$prop = $val;
@@ -381,14 +467,11 @@ class CDUTemplatesQueue {
 
 	function queueTemplate() {
 		$st = $this->prepare( "insert into CDUTemplatesQueue set RequestID=:RequestID, TemplateID=:TemplateID,
-			ManufacturerID=:ManufacturerID, Model=:Model, Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion,
+			Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion,
 			VersionOID=:VersionOID, Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
-			ATSDesiredResule=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage, Amperage=:Amperage,
-			NumOutlets=:NumOutlets" );
+			ATSDesiredResult=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage, Amperage=:Amperage" );
 		return $st->execute( array( ":RequestID"=>$this->RequestID,
 			":TemplateID"=>$this->TemplateID,
-			":ManufacturerID"=>$this->ManufacturerID,
-			":Model"=>$this->Model,
 			":Managed"=>$this->Managed,
 			":ATS"=>$this->ATS,
 			":SNMPVersion"=>$this->SNMPVersion,
@@ -401,15 +484,61 @@ class CDUTemplatesQueue {
 			":ATSDesiredResult"=>$this->ATSDesiredResult,
 			":ProcessingProfile"=>$this->ProcessingProfile,
 			":Voltage"=>$this->Voltage,
-			":Amperage"=>$this->Amperage,
-			":NumOutlets"=>$this->NumOutlets ) );
+			":Amperage"=>$this->Amperage ) );
+	}
+
+	function approveRequest() {
+                $st = $this->prepare( "select count(*) as Total from CDUTemplates where TemplateID=:TemplateID" );
+                $st->execute( array( ":TemplateID" => $this->TemplateID ) );
+		$r = $st->fetch();
+                if ( $r['Total'] > 0 ) {
+                	$st = $this->prepare( "update CDUTemplates set 
+				Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion, VersionOID=:VersionOID,
+				Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
+				ATSDesiredResult=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage,
+				Amperage=:Amperage where TemplateID=:TemplateID" );
+                        $st->execute( array( ":Managed"=>$this->Managed,
+				":ATS"=>$this->ATS,
+				":SNMPVersion"=>$this->SNMPVersion,
+				":VersionOID"=>$this->VersionOID,
+				":Multiplier"=>$this->Multiplier,
+				":OID1"=>$this->OID1,
+				":OID2"=>$this->OID2,
+				":OID3"=>$this->OID3,
+				":ATSStatusOID"=>$this->ATSStatusOID,
+				":ATSDesiredResult"=>$this->ATSDesiredResult,
+				":ProcessingProfile"=>$this->ProcessingProfile,
+				":Voltage"=>$this->Voltage,
+				":Amperage"=>$this->Amperage,
+				":TemplateID"=>$this->TemplateID ) );
+		} else {
+                        $st = $this->prepare( "insert into CDUTemplates set TemplateID=:TemplateID,
+                                Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion, VersionOID=:VersionOID,
+                                Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
+                                ATSDesiredResult=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage,
+                                Amperage=:Amperage" );
+                	$st->execute( array( ":TemplateID"=>$this->TemplateID,
+				":Managed"=>$this->Managed,
+                                ":ATS"=>$this->ATS,
+                                ":SNMPVersion"=>$this->SNMPVersion,
+                                ":VersionOID"=>$this->VersionOID,
+                                ":Multiplier"=>$this->Multiplier,
+                                ":OID1"=>$this->OID1,
+                                ":OID2"=>$this->OID2,
+                                ":OID3"=>$this->OID3,
+                                ":ATSStatusOID"=>$this->ATSStatusOID,
+                                ":ATSDesiredResult"=>$this->ATSDesiredResult,
+                                ":ProcessingProfile"=>$this->ProcessingProfile,
+                                ":Voltage"=>$this->Voltage,
+                        	":Amperage"=>$this->Amperage ) );
+                }
+
+                return true;
 	}
 }
 
 class CDUTemplates {
 	var $TemplateID;
-	var $ManufacturerID;
-	var $Model;
 	var $Managed;
 	var $ATS;
 	var $SNMPVersion;
@@ -423,7 +552,6 @@ class CDUTemplates {
 	var $ProcessingProfile;
 	var $Voltage;
 	var $Amperage;
-	var $NumOutlets;
 
 
         function prepare( $sql ) {
@@ -431,10 +559,19 @@ class CDUTemplates {
                 return $dbh->prepare( $sql );
         }
 
-	function queueTemplate() {
+	function getTemplate( $TemplateID ) {
+		$st = $this->prepare( "select * from CDUTemplates where TemplateID=:TemplateID" );
+		$st->execute( array( ":TemplateID"=>$TemplateID ) );
 
+		$st->setFetchMode( PDO::FETCH_CLASS, "CDUTemplates" );
+		if ( $row = $st->fetch() ) {
+			foreach ( $row as $prop=>$val ) {
+				$this->$prop = $val;
+			}
+		}
+
+		return;
 	}
-
 }
 
 
@@ -454,9 +591,9 @@ class ChassisSlotsQueue {
                 return $dbh->prepare( $sql );
         }
 
-	function getSlots() {
-		$st = $this->prepare( "select * from SlotsQueue where RequestID=:RequestID order by Position ASC" );
-		$st->execute( array( ":RequestID"=>$this->RequestID ) );
+	function getSlots( $RequestID ) {
+		$st = $this->prepare( "select * from ChassisSlotsQueue where RequestID=:RequestID order by Position ASC" );
+		$st->execute( array( ":RequestID"=>$RequestID ) );
 		$st->setFetchMode( PDO::FETCH_CLASS, "ChassisSlotsQueue" );
 		$sList = array();
 		while ( $row = $st->fetch() ) {
@@ -467,12 +604,52 @@ class ChassisSlotsQueue {
 	}
 
 	function queueSlots( $sList ) {
-		$st = $this->prepare( "insert into SlotsQueue set RequestID=:RequestID, TemplateID=:TemplateID, Position=:Position, BackSide=:BackSide, X=:x, Y=:Y, W=:W, H=:H" );
+		$st = $this->prepare( "insert into ChassisSlotsQueue set RequestID=:RequestID, TemplateID=:TemplateID, Position=:Position, BackSide=:BackSide, X=:X, Y=:Y, W=:W, H=:H" );
 
-		foreach ( $sList as $s ) { 
-			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":Position"=>$s->Position, 
-				":BackSide"=>$s->BackSide, ":X", $s->X, ":Y"=>$s->Y, ":W"=>$s->W, ":H"=>$s->H ) );
+		foreach ( $sList as $slot ) {
+			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":Position"=>$slot->Position, 
+			 	":BackSide"=>$slot->BackSide, ":X"=>$slot->X, ":Y"=>$slot->Y, ":W"=>$slot->W, ":H"=>$slot->H ) );
 		}
+	}
+
+	function approveRequest() {
+		$st = $this->prepare( "insert into ChassisSlots set TemplateID=:TemplateID, Position=:Position, BackSide=:BackSide, X=:X, Y=:Y, W=:W, H=:H" );
+
+		$st->execute( array( ":TemplateID"=>$this->TemplateID, ":Position"=>$this->Position, ":BackSide"=>$this->BackSide, ":X"=>$this->X, ":Y"=>$this->Y, ":W"=>$this->W, ":H"=>$this->H ) );
+	}
+}
+
+class ChassisSlots {
+	var $TemplateID;
+	var $Position;
+	var $BackSide;
+	var $X;
+	var $Y;
+	var $W;
+	var $H;
+
+	function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
+	}
+
+	function flushSlots( $TemplateID ) {
+		$st = $this->prepare( "delete from ChassisSlots where TemplateID=:TemplateID" );
+		return $st->execute( array( ":TemplateID"=>$TemplateID ) );
+	}
+
+	function getSlots( $TemplateID ) {
+		// Searching for slots without a valid TemplateID will simply return an empty set
+		$st = $this->prepare( "select * from ChassisSlots where TemplateID=:TemplateID order by BackSide ASC, Position ASC" );
+		$st->execute( array( ":TemplateID"=>$TemplateID ) );
+
+		$sList = array();
+		$st->setFetchMode( PDO::FETCH_CLASS, "ChassisSlots" );
+		while ( $row = $st->fetch() ) {
+			$sList[] = $row;
+		}
+
+		return $sList;
 	}
 }
 
@@ -488,9 +665,9 @@ class TemplatePortsQueue {
 		return $dbh->prepare( $sql );
 	}
 
-	function getPorts() {
+	function getPorts( $RequestID ) {
 		$st = $this->prepare( "select * from TemplatePortsQueue where RequestID=:RequestID order by PortNumber ASC" );
-		$st->execute( array( ":RequestID"=>$this->RequestID ) );
+		$st->execute( array( ":RequestID"=>$RequestID ) );
 		$st->setFetchMode( PDO::FETCH_CLASS, "TemplatePortsQueue" );
 		$tpList = array();
 		while ( $row = $st->fetch() ) {
@@ -498,6 +675,14 @@ class TemplatePortsQueue {
 		}
 
 		return $tpList;
+	}
+
+	function approveRequest() {
+		// This is a child of a main template, assume that TemplatePorts::FlushPorts was called first
+		$st = $this->prepare( "insert into TemplatePorts set TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
+		$st->execute( array( ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$this->PortNumber, ":Label"=>$this->Label ) );
+
+		return true;
 	}
 
 	function queuePorts( $tpList ) {
@@ -520,7 +705,26 @@ class TemplatePorts {
                 return $dbh->prepare( $sql );
         }
 
+	function flushPorts( $TemplateID ) {
+		$st = $this->prepare( "delete from TemplatePorts where TemplateID=:TemplateID" );
+		$st->execute( array( ":TemplateID"=>$TemplateID ) );
 
+		return;
+	}
+
+	function getPorts( $TemplateID ) {
+		// Passing an invalid port will simply return an empty set
+		$st = $this->prepare( "select * from TemplatePorts where TemplateID=:TemplateID order by PortNumber ASC" );
+		$st->execute( array( ":TemplateID"=>$TemplateID ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "TemplatePorts" );
+
+		$pList = array();
+		while ( $row = $st->fetch() ) {
+			$pList[] = $row;
+		}
+
+		return $pList;
+	}
 }
 
 class TemplatePowerPortsQueue {
@@ -535,9 +739,9 @@ class TemplatePowerPortsQueue {
                 return $dbh->prepare( $sql );
         }
 
-	function getPorts() {
+	function getPorts( $RequestID ) {
 		$st = $this->prepare( "select * from TemplatePowerPortsQueue where RequestID=:RequestID order by PortNumber ASC" );
-		$st->execute( array( ":RequestID"=>$this->RequestID ) );
+		$st->execute( array( ":RequestID"=>$RequestID ) );
 		$st->setFetchMode( PDO::FETCH_CLASS, "TemplatePowerPortsQueue" );
 		$ppList = array();
 		while ( $row = $st->fetch() ) {
@@ -546,6 +750,14 @@ class TemplatePowerPortsQueue {
 
 		return $ppList;
 	}
+
+        function approveRequest() {
+                $st = $this->prepare( "insert into TemplatePowerPorts set TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
+                $st->execute( array( ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$this->PortNumber, ":Label"=>$this->Label ) );
+
+                return true;
+        }
+
 
 	function queuePorts( $ppList ) {
 		$st = $this->prepare( "insert into TemplatePowerPortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
@@ -567,6 +779,122 @@ class TemplatePowerPorts {
                 return $dbh->prepare( $sql );
         }
 
+	function flushPorts( $TemplateID ) {
+		$st = $this->prepare( "delete from TemplatePowerPorts where TemplateID=:TemplateID" );
+		return $st->execute( array( ":TemplateID"=>$TemplateID ) );
+	}
+
+	function getPorts( $TemplateID ) {
+		$st = $this->prepare( "select * from TemplatePowerPorts where TemplateID=:TemplateID order by PortNumber ASC" );
+		$st->execute( array( ":TemplateID"=>$TemplateID ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "TemplatePowerPorts" );
+
+		$ppList = array();
+		while ( $row = $st->fetch() ) {
+			$ppList[] = $row;
+		}
+
+		return $ppList;
+	}
+}
+
+class SensorTemplatesQueue {
+	var $RequestID;
+	var $TemplateID;
+	var $SNMPVersion;
+	var $TemperatureOID;
+	var $HumidityOID;
+	var $TempMultiplier;
+	var $HumidityMultiplier;
+	var $mUnits;
+
+	function prepare( $sql ) {
+		global $dbh;
+		return $dbh->prepare( $sql );
+	}
+
+	function getTemplate( $requestid ) {
+		$st = $this->prepare( "select * from SensorTemplatesQueue where RequestID=:RequestID" );
+		$st->execute( array( ":RequestID"=>$requestid ) );
+		$st->setFetchMode( PDO::FETCH_CLASS, "SensorTemplatesQueue" );
+
+		if ( $row = $st->fetch() ) {
+			foreach ( $row as $prop=>$val ) {
+				$this->$prop = $val;
+			}
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	function queueTemplate() {
+		$st = $this->prepare( "insert into SensorTemplatesQueue set RequestID=:RequestID, TemplateID=:TemplateID,
+			SNMPVersion=:SNMPVersion, TemperatureOID=:TemperatureOID, HumidityOID=:HumidityOID,
+			TempMultiplier=:TempMultiplier, HumidityMultiplier=:HumidityMultiplier, mUnits=:mUnits" );
+		return $st->execute( array( ":RequestID"=>$this->RequestID,
+			":TemplateID"=>$this->TemplateID,
+			":SNMPVersion"=>$this->SNMPVersion,
+			":TemperatureOID"=>$this->TemperatureOID,
+			":HumidityOID"=>$this->HumidityOID,
+			":TempMultiplier"=>$this->TempMultiplier,
+			":HumidityMultiplier"=>$this->HumidityMultiplier,
+			":mUnits"=>$this->mUnits ) );
+	}
+
+	function approveRequest() {
+		$st = $this->prepare( "select TemplateID, count(*) as Total from SensorTemplates where TemplateID=:TemplateID" );
+		$st->execute( array( ":TemplateID"=>$this->TemplateID ) );
+		$row = $st->fetch();
+
+		if ( $row['Total'] > 0 ) {
+			$st = $this->prepare( "update SensorTemplates set SNMPVersion=:SNMPVersion, TemperatureOID=:TemperatureOID,
+				HumidityOID=:HumidityOID, TempMultiplier=:TempMultiplier, HumidityMultiplier=:HumidityMultiplier,
+				mUnits=:mUnits where TemplateID=:TemplateID" );
+		} else {
+			$st = $this->prepare( "insert into SensorTemplates set SNMPVersion=:SNMPVersion, TemperatureOID=:TemperatureOID,
+				HumidityOID=:HumidityOID, TempMultiplier=:TempMultiplier, HumidityMultiplier=:HumidityMultiplier,
+				mUnits=:mUnits, TemplateID=:TemplateID" );
+		}
+
+		return $st->execute( array( ":TemplateID"=>$this->TemplateID,
+                        ":SNMPVersion"=>$this->SNMPVersion,
+                        ":TemperatureOID"=>$this->TemperatureOID,
+                        ":HumidityOID"=>$this->HumidityOID,
+                        ":TempMultiplier"=>$this->TempMultiplier,
+                        ":HumidityMultiplier"=>$this->HumidityMultiplier,
+                        ":mUnits"=>$this->mUnits ) );
+	}
+}
+
+class SensorTemplates {
+        var $TemplateID;
+        var $SNMPVersion;
+        var $TemperatureOID;
+        var $HumidityOID;
+        var $TempMultiplier;
+        var $HumidityMultiplier;
+        var $mUnits;
+
+        function prepare( $sql ) {
+                global $dbh;
+                return $dbh->prepare( $sql );
+        }
+
+        function getTemplate( $templateid ) {
+                $st = $this->prepare( "select * from SensorTemplates where TemplateID=:TemplateID" );
+                $st->execute( array( ":TemplateID"=>$templateid ) );
+                $st->setFetchMode( PDO::FETCH_CLASS, "SensorTemplates" );
+
+                if ( $row = $st->fetch() ) {
+                        foreach ( $row as $prop=>$val ) {
+                                $this->$prop = $val;
+                        }
+                        return true;
+                } else {
+                        return false;
+                }
+        }
 }
 
 class Moderators {
