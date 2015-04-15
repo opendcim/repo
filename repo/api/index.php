@@ -140,6 +140,73 @@
 		}
 	}
 
+	function buildTemplateResponse( $tmp ) {
+                $dt = new DeviceTemplates();
+		$ct = new CDUTemplates();
+		$sen = new SensorTemplates();
+                $ts = new ChassisSlots();
+                $tp = new TemplatePorts();
+                $tpp = new TemplatePowerPorts();
+
+                $tmpl = array();
+                foreach( $tmp as $prop=>$value ) {
+                        $tmpl[$prop] = $value;
+                }
+		if ( $tmp->FrontPictureFile != "" ) {
+			$tmpl["FrontPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->FrontPictureFile;
+		}
+		if ( $tmp->RearPictureFile != "" ) {
+			$tmpl["RearPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->RearPictureFile;
+		}
+                if ( $tmp->DeviceType == "Chassis" ) {
+                        $sList = $ts->getSlots( $tmp->TemplateID );
+                        $tmpl['slots'] = array();
+                        foreach ( $sList as $slot ) {
+                        	$tmpSlot = array();
+                                foreach ( $slot as $prop=>$value ) {
+                                        $tmpSlot[$prop] = $value;
+                                }
+                                $tmpl['slots'][] = $tmpSlot;
+                        }
+                }
+		if ( $tmp->DeviceType == "CDU" ) {
+			$ct->getTemplate( $tmp->TemplateID );
+
+                        $tmpl['cdutemplate'] = array();
+                        foreach ( $ct as $prop=>$value ) {
+                                $tmpl['cdutemplate'][$prop] = $value;
+                        }
+		}
+                if ( $tmp->DeviceType == "Sensor" ) {
+                        $tmpl['sensortemplate'] = array();
+
+                        $sen->getTemplate( $tmp->TemplateID );
+                        foreach ( $sen as $prop=>$val ) {
+                                $tmpl["sensortemplate"][$prop] = $val;
+                        }
+                }
+                $pList = $tp->getPorts( $tmp->TemplateID );
+                $tmpl['ports'] = array();
+                foreach( $pList as $port ) {
+                        $tmpPort = array();
+                        foreach( $port as $prop=>$value ) {
+                                $tmpPort[$prop] = $value;
+                        }
+                        $tmpl['ports'][] = $tmpPort;
+                }
+
+                $ppList = $tpp->getPorts( $tmp->TemplateID );
+                $tmpl['powerports'] = array();
+                foreach ( $ppList as $pp ) {
+                        $tmpPwr = array();
+                        foreach ( $pp as $prop=>$value ) {
+                                $tmpPwr[$prop] = $value;
+                        }
+                        $tmpl['powerports'][] = $tmpPwr;
+                }
+
+		return $tmpl;
+	}
 
 	function getTemplate() {
 		$dt = new DeviceTemplates();
@@ -148,12 +215,8 @@
 		$response['error'] = false;
 		$response['errorcode'] = 200;
 		$response['templates'] = array();
-		foreach ( $dtList as $devtmp ) {
-			$tmp = array();
-			foreach ( $devtmp as $prop=>$value ) {
-				$tmp[$prop] = $value;
-			}
-			array_push( $response['templates'], $tmp );
+		foreach ( $dtList as $tmp ) {
+			array_push( $response['templates'], buildTemplateResponse( $tmp ) );
 		}
 
 		echoRespnse( 200, $response );
@@ -174,83 +237,26 @@
                 $response['errorcode'] = 200;
                 $response['templates'] = array();
                 foreach( $dtList as $tmp ) {
-                        $tmpl = array();
-                        foreach( $tmp as $prop=>$value ) {
-                                $tmpl[$prop] = $value;
-                        }
-			if ( $tmp->FrontPictureFile != "" ) {
-				$tmpl["FrontPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->FrontPictureFile;
-			}
-			if ( $tmp->RearPictureFile != "" ) {
-				$tmpl["RearPictureFile"] = "https://repository.opendcim.org/images/approved/" . $tmp->TemplateID . "." . $tmp->RearPictureFile;
-			}
-                        if ( $tmp->DeviceType == "Chassis" ) {
-                                $sList = $ts->getSlots( $templateid );
-				error_log( print_r( $sList, true ));
-                                $tmpl['slots'] = array();
-                                foreach ( $sList as $slot ) {
-                                        $tmpSlot = array();
-                                        foreach ( $slot as $prop=>$value ) {
-                                                $tmpSlot[$prop] = $value;
-                                        }
-                                        $tmpl['slots'][] = $tmpSlot;
-                                }
-                        }
-			if ( $tmp->DeviceType == "CDU" ) {
-				$ct->getTemplate( $templateid );
-
-                                $tmpl['cdutemplate'] = array();
-                                foreach ( $ct as $prop=>$value ) {
-                                        $tmpl['cdutemplate'][$prop] = $value;
-                                }
-			}
-                        if ( $tmp->DeviceType == "Sensor" ) {
-                                $tmpl['sensortemplate'] = array();
-
-                                $sen->getTemplate( $templateid );
-                                foreach ( $sen as $prop=>$val ) {
-                                        $tmpl["sensortemplate"][$prop] = $val;
-                                }
-                        }
-                        $pList = $tp->getPorts( $templateid );
-                        $tmpl['ports'] = array();
-                        foreach( $pList as $port ) {
-                                $tmpPort = array();
-                                foreach( $port as $prop=>$value ) {
-                                        $tmpPort[$prop] = $value;
-                                }
-                                $tmpl['ports'][] = $tmpPort;
-                        }
-
-                        $ppList = $tpp->getPorts( $templateid );
-                        $tmpl['powerports'] = array();
-                        foreach ( $ppList as $pp ) {
-                                $tmpPwr = array();
-                                foreach ( $pp as $prop=>$value ) {
-                                        $tmpPwr[$prop] = $value;
-                                }
-                                $tmpl['powerports'][] = $tmpPwr;
-                        }
-
-                        array_push( $response['templates'], $tmpl );
+                        array_push( $response['templates'], buildTemplateResponse( $tmp ) );
                 }
 
                 echoRespnse( 200, $response );
 	}
 
 	function getTemplateByManufacturer( $manufacturerid ) {
-		$dt = new DeviceTemplates();
+                $dt = new DeviceTemplates();
+		$ct = new CDUTemplates();
+		$sen = new SensorTemplates();
+                $ts = new ChassisSlots();
+                $tp = new TemplatePorts();
+                $tpp = new TemplatePowerPorts();
 		$dtList = $dt->getDeviceTemplateByMFG( $manufacturerid );
 
 		$response['error'] = false;
 		$response['errorcode'] = 200;
 		$response['templates'] = array();
-		foreach ( $dtList as $devtmp ) {
-				$tmp = array();
-				foreach ( $devtmp as $prop=>$value ) {
-						$tmp[$prop] = $value;
-				}
-				array_push( $response['templates'], $tmp );
+		foreach ( $dtList as $tmp ) {
+			array_push( $response['templates'], buildTemplateResponse( $tmp ) );
 		}
 
 		echoRespnse( 200, $response );

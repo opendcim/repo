@@ -193,7 +193,7 @@ class DeviceTemplates {
 		$templateList = array();
 		$st->setFetchMode( PDO::FETCH_CLASS, "DeviceTemplates" );
 		while ( $t = $st->fetch() ) {
-				$templateList[] = $t;
+			$templateList[] = $t;
 		}
 
 		return $templateList;
