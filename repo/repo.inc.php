@@ -161,6 +161,7 @@ class DeviceTemplates {
 	var $RearPictureFile;
 	var $ChassisSlots;
 	var $RearChassisSlots;
+	var $SNMPVersion;
 	var $LastModified;
 
 	function prepare( $sql ) {
@@ -217,6 +218,7 @@ class DeviceTemplatesQueue {
         var $RearPictureFile;
         var $ChassisSlots;
         var $RearChassisSlots;
+	var $SNMPVersion;
         var $SubmittedBy;
 	var $SubmissionDate;
 	var $ApprovedBy;
@@ -247,6 +249,7 @@ class DeviceTemplatesQueue {
 		$this->RearPictureFile = sanitize( $this->RearPictureFile );
 		$this->ChassisSlots = intval( $this->ChassisSlots );
 		$this->RearChassisSlots = intval( $this->RearChassisSlots );
+		$this->SNMPVersion = (in_array( $this->SNMPVersion, array( '1','2c','3')))?$this->SNMPVersion:'2c';
 	}
 
 	function viewStatus( $RequestID = null ) {
@@ -318,7 +321,7 @@ class DeviceTemplatesQueue {
 					Model=:Model, Height=:Height, Weight=:Weight, Wattage=:Wattage, DeviceType=:DeviceType,
 					PSCount=:PSCount, NumPorts=:NumPorts, FrontPictureFile=:FrontPictureFile,
 					RearPictureFile=:RearPictureFile, ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
-					LastModified=now() where TemplateID=:TemplateID" );
+					SNMPVersion=:SNMPVersion, LastModified=now() where TemplateID=:TemplateID" );
                                 $st->execute( array( ":ManufacturerID"=>$this->ManufacturerID,
 					":Model"=>$this->Model,
 					":Height"=>$this->Height,
@@ -331,13 +334,14 @@ class DeviceTemplatesQueue {
 					":RearPictureFile"=>$this->RearPictureFile,
 					":ChassisSlots"=>$this->ChassisSlots,
 					":RearChassisSlots"=>$this->RearChassisSlots,
+					":SNMPVersion"=>$this->SNMPVersion,
 					":TemplateID"=>$this->TemplateID ) );
                         } else {
                                 $st = $this->prepare( "insert into DeviceTemplates set ManufacturerID=:ManufacturerID,
 					Model=:Model, Height=:Height, Weight=:Weight, Wattage=:Wattage, DeviceType=:DeviceType,
 					PSCount=:PSCount, NumPorts=:NumPorts, FrontPictureFile=:FrontPictureFile,
 					RearPictureFile=:RearPictureFile, ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
-					LastModified=now()" );
+					SNMPVersion=:SNMPVersion, LastModified=now()" );
                                 $st->execute( array( ":ManufacturerID"=>$this->ManufacturerID,
 					":Model"=>$this->Model,
 					":Height"=>$this->Height,
@@ -349,7 +353,8 @@ class DeviceTemplatesQueue {
 					":FrontPictureFile"=>$this->FrontPictureFile,
 					":RearPictureFile"=>$this->RearPictureFile,
 					":ChassisSlots"=>$this->ChassisSlots,
-					":RearChassisSlots"=>$this->RearChassisSlots ) );
+					":RearChassisSlots"=>$this->RearChassisSlots,
+					":SNMPVersion"=>$this->SNMPVersion ) );
                                 $this->TemplateID=$this->lastInsertId();
 
 				// We just assigned a TemplateID, so propagate that to all the other tables depending on it
@@ -407,7 +412,7 @@ class DeviceTemplatesQueue {
 			PSCount=:PSCount, NumPorts=:NumPorts,
 			FrontPictureFile=:FrontPictureFile, RearPictureFile=:RearPictureFile,
 			ChassisSlots=:ChassisSlots, RearChassisSlots=:RearChassisSlots,
-			SubmittedBy=:SubmittedBy, SubmissionDate=now()");
+			SNMPVersion=:SNMPVersion, SubmittedBy=:SubmittedBy, SubmissionDate=now()");
 		$st->execute( array( ":TemplateID"=>$this->TemplateID,
 			":ManufacturerID"=>$this->ManufacturerID,
 			":Model"=>$this->Model,
@@ -421,6 +426,7 @@ class DeviceTemplatesQueue {
 			":RearPictureFile"=>$this->RearPictureFile,
 			":ChassisSlots"=>$this->ChassisSlots,
 			":RearChassisSlots"=>$this->RearChassisSlots,
+			":SNMPVersion"=>$this->SNMPVersion,
 			":SubmittedBy"=>$this->SubmittedBy ) );
 
 		$this->RequestID = $this->lastInsertId();
@@ -433,7 +439,6 @@ class CDUTemplatesQueue {
 	var $TemplateID;
 	var $Managed;
 	var $ATS;
-	var $SNMPVersion;
 	var $VersionOID;
 	var $Multiplier;
 	var $OID1;
@@ -467,14 +472,13 @@ class CDUTemplatesQueue {
 
 	function queueTemplate() {
 		$st = $this->prepare( "insert into CDUTemplatesQueue set RequestID=:RequestID, TemplateID=:TemplateID,
-			Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion,
+			Managed=:Managed, ATS=:ATS,
 			VersionOID=:VersionOID, Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
 			ATSDesiredResult=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage, Amperage=:Amperage" );
 		return $st->execute( array( ":RequestID"=>$this->RequestID,
 			":TemplateID"=>$this->TemplateID,
 			":Managed"=>$this->Managed,
 			":ATS"=>$this->ATS,
-			":SNMPVersion"=>$this->SNMPVersion,
 			":VersionOID"=>$this->VersionOID,
 			":Multiplier"=>$this->Multiplier,
 			":OID1"=>$this->OID1,
@@ -493,13 +497,12 @@ class CDUTemplatesQueue {
 		$r = $st->fetch();
                 if ( $r['Total'] > 0 ) {
                 	$st = $this->prepare( "update CDUTemplates set 
-				Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion, VersionOID=:VersionOID,
+				Managed=:Managed, ATS=:ATS, VersionOID=:VersionOID,
 				Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
 				ATSDesiredResult=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage,
 				Amperage=:Amperage where TemplateID=:TemplateID" );
                         $st->execute( array( ":Managed"=>$this->Managed,
 				":ATS"=>$this->ATS,
-				":SNMPVersion"=>$this->SNMPVersion,
 				":VersionOID"=>$this->VersionOID,
 				":Multiplier"=>$this->Multiplier,
 				":OID1"=>$this->OID1,
@@ -513,14 +516,13 @@ class CDUTemplatesQueue {
 				":TemplateID"=>$this->TemplateID ) );
 		} else {
                         $st = $this->prepare( "insert into CDUTemplates set TemplateID=:TemplateID,
-                                Managed=:Managed, ATS=:ATS, SNMPVersion=:SNMPVersion, VersionOID=:VersionOID,
+                                Managed=:Managed, ATS=:ATS, VersionOID=:VersionOID,
                                 Multiplier=:Multiplier, OID1=:OID1, OID2=:OID2, OID3=:OID3, ATSStatusOID=:ATSStatusOID,
                                 ATSDesiredResult=:ATSDesiredResult, ProcessingProfile=:ProcessingProfile, Voltage=:Voltage,
                                 Amperage=:Amperage" );
                 	$st->execute( array( ":TemplateID"=>$this->TemplateID,
 				":Managed"=>$this->Managed,
                                 ":ATS"=>$this->ATS,
-                                ":SNMPVersion"=>$this->SNMPVersion,
                                 ":VersionOID"=>$this->VersionOID,
                                 ":Multiplier"=>$this->Multiplier,
                                 ":OID1"=>$this->OID1,
@@ -541,7 +543,6 @@ class CDUTemplates {
 	var $TemplateID;
 	var $Managed;
 	var $ATS;
-	var $SNMPVersion;
 	var $VersionOID;
 	var $Multiplier;
 	var $OID1;
@@ -801,7 +802,6 @@ class TemplatePowerPorts {
 class SensorTemplatesQueue {
 	var $RequestID;
 	var $TemplateID;
-	var $SNMPVersion;
 	var $TemperatureOID;
 	var $HumidityOID;
 	var $TempMultiplier;
@@ -830,11 +830,10 @@ class SensorTemplatesQueue {
 
 	function queueTemplate() {
 		$st = $this->prepare( "insert into SensorTemplatesQueue set RequestID=:RequestID, TemplateID=:TemplateID,
-			SNMPVersion=:SNMPVersion, TemperatureOID=:TemperatureOID, HumidityOID=:HumidityOID,
+			TemperatureOID=:TemperatureOID, HumidityOID=:HumidityOID,
 			TempMultiplier=:TempMultiplier, HumidityMultiplier=:HumidityMultiplier, mUnits=:mUnits" );
 		return $st->execute( array( ":RequestID"=>$this->RequestID,
 			":TemplateID"=>$this->TemplateID,
-			":SNMPVersion"=>$this->SNMPVersion,
 			":TemperatureOID"=>$this->TemperatureOID,
 			":HumidityOID"=>$this->HumidityOID,
 			":TempMultiplier"=>$this->TempMultiplier,
@@ -848,17 +847,16 @@ class SensorTemplatesQueue {
 		$row = $st->fetch();
 
 		if ( $row['Total'] > 0 ) {
-			$st = $this->prepare( "update SensorTemplates set SNMPVersion=:SNMPVersion, TemperatureOID=:TemperatureOID,
+			$st = $this->prepare( "update SensorTemplates set TemperatureOID=:TemperatureOID,
 				HumidityOID=:HumidityOID, TempMultiplier=:TempMultiplier, HumidityMultiplier=:HumidityMultiplier,
 				mUnits=:mUnits where TemplateID=:TemplateID" );
 		} else {
-			$st = $this->prepare( "insert into SensorTemplates set SNMPVersion=:SNMPVersion, TemperatureOID=:TemperatureOID,
+			$st = $this->prepare( "insert into SensorTemplates set TemperatureOID=:TemperatureOID,
 				HumidityOID=:HumidityOID, TempMultiplier=:TempMultiplier, HumidityMultiplier=:HumidityMultiplier,
 				mUnits=:mUnits, TemplateID=:TemplateID" );
 		}
 
 		return $st->execute( array( ":TemplateID"=>$this->TemplateID,
-                        ":SNMPVersion"=>$this->SNMPVersion,
                         ":TemperatureOID"=>$this->TemperatureOID,
                         ":HumidityOID"=>$this->HumidityOID,
                         ":TempMultiplier"=>$this->TempMultiplier,
@@ -869,7 +867,6 @@ class SensorTemplatesQueue {
 
 class SensorTemplates {
         var $TemplateID;
-        var $SNMPVersion;
         var $TemperatureOID;
         var $HumidityOID;
         var $TempMultiplier;
