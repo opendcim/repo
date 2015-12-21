@@ -116,6 +116,11 @@ class ManufacturersQueue {
 
 		return $mfgList;
 	}
+
+	function deleteRequest( $RequestID ) {
+		$st = $this->prepare( "delete from ManufacturersQueue where RequestID=:RequestID" );
+		return $st->execute( array( ":RequestID"=>$RequestID ) );
+	}
 	
 	function approveRequest( $currUser ) {
 		$st = $this->prepare( "select * from ManufacturersQueue where RequestID=:RequestID" );
@@ -608,6 +613,7 @@ class ChassisSlotsQueue {
 		$st = $this->prepare( "insert into ChassisSlotsQueue set RequestID=:RequestID, TemplateID=:TemplateID, Position=:Position, BackSide=:BackSide, X=:X, Y=:Y, W=:W, H=:H" );
 
 		foreach ( $sList as $slot ) {
+			$slot=(is_object($slot))?$slot:(object) $slot;
 			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":Position"=>$slot->Position, 
 			 	":BackSide"=>$slot->BackSide, ":X"=>$slot->X, ":Y"=>$slot->Y, ":W"=>$slot->W, ":H"=>$slot->H ) );
 		}
@@ -690,6 +696,7 @@ class TemplatePortsQueue {
 		$st = $this->prepare( "insert into TemplatePortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
 
 		foreach( $tpList as $tp ) {
+			$tp=(is_object($tp))?$tp:(object) $tp;
 			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$tp->PortNumber, ":Label"=>$tp->Label ) );
 		}
 	}
@@ -764,6 +771,7 @@ class TemplatePowerPortsQueue {
 		$st = $this->prepare( "insert into TemplatePowerPortsQueue set RequestID=:RequestID, TemplateID=:TemplateID, PortNumber=:PortNumber, Label=:Label" );
 
 		foreach ( $ppList as $p ) {
+			$p=(is_object($p))?$p:(object) $p;
 			$st->execute( array( ":RequestID"=>$this->RequestID, ":TemplateID"=>$this->TemplateID, ":PortNumber"=>$p->PortNumber, ":Label"=>$p->Label ) );
 		}
 	}
@@ -1013,6 +1021,10 @@ class Users {
 		$st->execute( array( ":APIKey"=>$APIKey ) );
 		$st->setFetchMode( PDO::FETCH_CLASS, "Users" );
 		$row = $st->fetch();
+
+		if ( ! is_object( $row ) ) {
+			return false;
+		}
 
 		if ( $row->UserID == null ) {
 			return false;

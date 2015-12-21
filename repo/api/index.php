@@ -24,9 +24,11 @@
 	$app->put( '/manufacturer', 'authenticate', 'queueManufacturer' );
 
 	$app->post( '/manufacturer/approve', 'authenticate', 'approveManufacturer' );
+	$app->post( '/manufacturer/pending/delete/:requestid', 'authenticate', 'deletePendingManufacturer' );
 	$app->post( '/template/approve', 'authenticate', 'approveTemplate' );
 
 	$app->put( '/template', 'authenticate', 'queueTemplate' );
+	$app->put( '/templatealt', 'authenticate', 'queueTemplateAlt' );
 	$app->post( '/template/pending/delete/:requestid', 'authenticate', 'deletePendingTemplate' );
 	$app->post( '/template/addpictures/:requestid', 'authenticate', 'queuePictures' );
 
@@ -563,6 +565,25 @@
 		echoRespnse( $response['errorcode'], $response );
 	}
 
+	function deletePendingManufacturer( $RequestID ) {
+		global $currUser;
+
+		$response = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+
+		$m = new ManufacturersQueue();
+		if ( $currUser->Administrator ) {
+			if ( ! $m->deleteRequest( $RequestID ) ) {
+				$response['error'] = true;
+				$response['errorcode'] = 403;
+				$response['message'] = 'Error processing request.';
+			}
+		}
+
+		echoRespnse( $response['errorcode'], $response );
+	}
+
 	function queuePictures( $RequestID ) {
 		global $currUser;
 		$app = \Slim\Slim::getInstance();
@@ -570,6 +591,7 @@
 		$response = array();
 		$response['error'] = false;
 		$response['errorcode'] = 200;
+		$response['files']=$_FILES;
 
 		if ( isset( $_FILES["front"] ) ) {
 			$fn = '/home/dcim/repo/repo/images/submitted/' . $RequestID . "." . $_FILES["front"]["name"];
@@ -704,5 +726,93 @@
 		echoRespnse( $response['errorcode'], $response );
 	}
 
+	function queueTemplateAlt() {
+		global $currUser;
+		$app = \Slim\Slim::getInstance();
+		// Convert submitted data into objects
+		$vars=new StdClass();
+		foreach($app->request()->put() as $i => $arr){
+			$vars->$i=(object) $arr;
+		}
+		$dType = @$vars->template->DeviceType;
+
+		$response = array();
+		$response['error'] = false;
+		$response['errorcode'] = 200;
+
+		$t = new DeviceTemplatesQueue();
+		$tp = new TemplatePortsQueue();
+		$sc = new ChassisSlotsQueue();
+		$pp = new TemplatePowerPortsQueue();
+
+		foreach ( $t as $prop => $value ) {
+			$t->$prop = isset( $vars->template->$prop ) ? $vars->template->$prop : '';
+		}
+
+		$t->TemplateID = @$vars->template->GlobalID;
+
+		$t->SubmittedBy = $currUser->UserID;
+
+		if ( $t->queueDeviceTemplate() ) {
+			$response['error'] = false;
+			$response['errorcode'] = 200;
+			$response['message'] = 'Device template queued for approval.';
+			$response['template'] = array( "RequestID" => $t->RequestID );
+		} else {
+			$response['error'] = true;
+			$response['errorcode'] = 403;
+			$response['message'] = 'Error processing request.';
+		}
+
+		$sc->RequestID = $t->RequestID;
+		$sc->TemplateID = $t->TemplateID;
+		if ( $dType == "Chassis" ) {
+			if ( is_object( @$vars->slots ) ) {
+				$sc->queueSlots( $vars->slots );
+			}
+		}
+
+		if ( $dType == "CDU" ) {
+			$ct = new CDUTemplatesQueue();
+			if ( @is_object( $vars->cdutemplate ) ) {
+				foreach ( $vars->cdutemplate as $prop=>$value ) {
+					$ct->$prop = $value;
+				}
+
+				$ct->RequestID = $t->RequestID;
+				$ct->TemplateID = $t->TemplateID;
+
+				$ct->queueTemplate();
+			}
+		}
+
+		if ( $dType == "Sensor" ) {
+			$sen = new SensorTemplatesQueue();
+			if ( @is_object( $vars->sensortemplate ) ) {
+				foreach ( $vars->sensortemplate as $prop=>$val ) {
+					$sen->$prop = $val;
+				}
+
+				$sen->RequestID = $t->RequestID;
+				$sen->TemplateID = $t->TemplateID;
+
+				$sen->queueTemplate();
+			}
+		}
+
+		$tp->RequestID = $t->RequestID;
+		$tp->TemplateID = $t->TemplateID;
+		if ( @is_object( $vars->templateports ) ) {
+			$tp->queuePorts( $vars->templateports );
+		}
+
+		$pp->RequestID = $t->RequestID;
+		$pp->TemplateID = $t->TemplateID;
+		if ( @is_object( $vars->templatepowerports ) ) {
+			$pp->queuePorts( $vars->templatepowerports );
+		}
+
+		echoRespnse( $response['errorcode'], $response );
+	}
 $app->run();
 ?>
