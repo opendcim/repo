@@ -3,6 +3,13 @@
   font-size: 18px;
 }
 
+.table {display: table;text-align: left;border-collapse: collapse;}
+.caption {caption-side: bottom; text-align: center; display: table-caption !important; white-space: nowrap;}
+.title {caption-side: top; text-align: center; display: table-caption !important;}
+div.table > div {display: table-row;}
+div.table > div > div {display: table-cell;vertical-align: middle;}
+.table label{width:130px;}
+
 .header {
 	padding-top: 5px;
 }
@@ -93,7 +100,27 @@ button {
 	padding:6px;
 }
 
+.imgcontainer { position: relative; }
+.imgcontainer > div { border: 3px solid red; z-index: 99; }
+.imgcontainer span { background: white; border: 1px solid black; padding: 1px; }
 
 #searchKey {
 	width:160px;
+}
+
+#Slots input, #poopupRight input {
+	color: white;
+	padding-left: 10px;
+	width: 70px;
+	-webkit-text-fill-color: white; /* Will override color (regardless of order) */
+	-webkit-text-stroke-width: 1px;
+	-webkit-text-stroke-color: black;
+	text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+	background-color: transparent;
+}
+
+#poopupLeft, #poopupRight {
+	position: relative;
+	display: inline-block;
+	vertical-align: middle;
 }

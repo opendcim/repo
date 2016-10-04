@@ -1047,6 +1047,10 @@ class Users {
 		$st->setFetchMode( PDO::FETCH_CLASS, "Users" );
 		$row = $st->fetch();
 
+		if ( ! is_object( $row ) ) {
+			return false;
+		}
+
 		if ( $row->UserID == null ) {
 			return false;
 		}

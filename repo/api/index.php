@@ -27,7 +27,7 @@
 	$app->post( '/manufacturer/pending/delete/:requestid', 'authenticate', 'deletePendingManufacturer' );
 	$app->post( '/template/approve', 'authenticate', 'approveTemplate' );
 
-	$app->put( '/template', 'authenticate', 'queueTemplate' );
+	// $app->put( '/template', 'authenticate', 'queueTemplate' );
 	$app->put( '/templatealt', 'authenticate', 'queueTemplateAlt' );
 	$app->post( '/template/pending/delete/:requestid', 'authenticate', 'deletePendingTemplate' );
 	$app->post( '/template/addpictures/:requestid', 'authenticate', 'queuePictures' );
@@ -123,8 +123,7 @@
 			// validating api key
 					
 			// An API key was passed, so check to see if it's real or not
-			$currUser->UserID = $currUser->verifyAPIKey($apikey, $ipaddress);
-			if ( $currUser == false ) {
+			if ( ! $currUser->UserID = $currUser->verifyAPIKey($apikey, $ipaddress) ) {
 				// api key is not present in users table
 				$response["error"] = true;
 				$response["errorcode"] = 401;
@@ -520,6 +519,7 @@
 				foreach ( $s as $prop=>$value ) {
 					$s->$prop = @$slot->$prop;
 				}
+				$s->RequestID = $dt->RequestID;
 				$s->TemplateID = $dt->TemplateID;
 				$s->approveRequest();
 			}
