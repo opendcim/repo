@@ -183,7 +183,6 @@ var wto_pp;
 // add a listening to the slots blank
 $('#ChassisSlots,#RearChassisSlots').on('focus',function(e){
 	$(this).data('pv',this.value);
-	console.log('previous value: '+$(this).data('pv'));
 }).on('change keyup',function(e){
 	var input=$(this);
 
@@ -219,7 +218,6 @@ $('#ChassisSlots,#RearChassisSlots').on('focus',function(e){
 // add listeners to the power supply count and ports blanks
 $('#NumPorts').on('focus',function(e){
     $(this).data('pv',this.value);
-    console.log('previous value: '+$(this).data('pv'));
 }).on('change keyup',function(e){
 	var input=$(this);
 
@@ -251,7 +249,6 @@ $('#NumPorts').on('focus',function(e){
 // add listeners to the power supply count and ports blanks
 $('#PSCount').on('focus',function(e){
     $(this).data('pv',this.value);
-    console.log('previous value: '+$(this).data('pv'));
 }).on('change keyup',function(e){
 	var input=$(this);
 
@@ -544,7 +541,6 @@ function findById(id) {
 		success: function(data) {
 			resetPage();
 			var row = data.templatequeue[0];
-console.log(row);
 			$('#btnDelete').show();
 			$('#RequestID').val(row.RequestID);
 			$('#TemplateID').val(row.TemplateID);
