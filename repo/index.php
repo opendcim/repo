@@ -213,36 +213,6 @@ function findById(mfgID) {
 	});
 }
 </script>
-
-<style type="text/css">
-	body, h3 { margin-top: 0px; margin-bottom: 0px; }
-	div#header { position: relative; text-align: center; background-color: #8a7b65; padding: 5px 10px 0px; }
-	#header > #nav { display: block; position: absolute; width: 100%; left: 0; bottom: 0; background-color: #de2211; font-family: Oswald,sans-serif;border-top: 1px solid #fc403c; border-bottom: 1px solid #fc403c; }
-	#logo { left: 10px; top: 19px; position: absolute; }
-	#stats { top: 0px; right: 10px; position: absolute; text-align: left; }
-	#title { height: 154px; line-height: 114px; }
-	#title > h1 { font-size: 36px; margin: 0; overflow: hidden; }
-	#footer > p { margin: 0; font-size: 12px; text-align: center; }
-	#nav a { color: #ffffff; font-size: 1.2em; letter-spacing: -1px; text-decoration: none; text-shadow: 0 1px 1px #590200; text-transform: lowercase; border: 0;}
-	#nav a:hover { background-color: #fc403c; }
-	#nav ul { list-style: outside none none; text-align: left; margin: 0; }
-	#nav ul li { display: inline-block; padding: 0 15px; }
-	.selected { background-color: #eb081e; text-shadow: 0 1px 1px #590200; color: white; }
-
-	.power, .ports { width: 45%; margin-top: 10px; min-height: 40px; margin-left: 20px; display: inline-block; vertical-align: top; }
-	.ui-widget-header { background: #de2211; }
-	.ui-dialog .left { width: 350px; white-space: nowrap; }
-	.ui-dialog .right { width: 450px; }
-	.ui-dialog .right .image { position: relative; }
-	.ui-dialog .left p { margin: 0px; }
-
-	.ui-dialog table { border-collapse: collapse; border: 1px solid black; }
-	.ui-dialog table th { padding: 0 5px; }
-	.ui-dialog table td { border: 1px solid black; padding: 0 5px; }
-	.image > div { border: 1px solid red; z-index: 99; }
-	.image span { background: white; border: 1px solid black; padding: 1px; }
-</style>
-
 </head>
 <body>
 	<div id="header">
