@@ -22,6 +22,17 @@
 
 	if ( isset( $_POST['action'] ) ) {
 	}
+	$st = $dbh->prepare( "select count(*) as Total from Manufacturers" );
+	$st->execute();
+	$mfg = $st->fetch();
+
+	$st = $dbh->prepare( "select count(*) as Total from DeviceTemplates" );
+	$st->execute();
+	$dt = $st->fetch();
+
+	$st = $dbh->prepare( "select count(*) as Total from CDUTemplates" );
+	$st->execute();
+	$ct = $st->fetch();
 ?>
 <!DOCTYPE html>
 <html>
@@ -31,9 +42,38 @@
 <title>Pending Administrative Requests</title>
 </head>
 <body>
-<a href="/index.php">Back to Main</a>
+	<div id="header">
+		<div id="logo">
+			<a href="/"><img src="../opendcim.png"></a>
+		</div>
+		<div id="title">
+			<h1>Pending Manufacturer Names</h1>
+		</div>
+		<div id="stats">
+			<h1>Template Information</h1>
+<?php echo '
+			<div>
+				Total Manufacturers = '.$mfg["Total"].'
+			</div>
+			<div>
+				Total Device Templates = '.$dt["Total"].'
+			</div>
+			<div>
+				Total CDU Templates = '.$ct["Total"].'
+			</div>
+'; ?>
+		</div>
+		<div id="nav">
+			<ul>
+				<li>Pending Admin Requests:</li>
+				<li><a href="pending_mfg.php">Manufacturers</a></li>
+				<li><a href="pending_tmp.php">Templates</a></li>
+			</ul>
+		</div>
+	</div>
+
+
 <div class="leftArea">
-<h3>Pending Manufacturer Names</h3>
 <ul id="mfgList"></ul>
 </div>
 
