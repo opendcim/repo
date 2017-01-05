@@ -3,7 +3,6 @@
 	require_once "../repo.inc.php";
 	require_once "auth.php";
 
-
 	$u = new Users();
 	$u->UserID = $_SESSION['userid'];
 
@@ -50,7 +49,7 @@
 			<a href="/"><img src="../opendcim.png"></a>
 		</div>
 		<div id="title">
-			<h1>Pending Device Templates</h1>
+			<h1>Live Template Editor</h1>
 		</div>
 		<div id="stats">
 			<h1>Template Information</h1>
@@ -76,6 +75,7 @@
 	</div>
 	<div id="content">
 <div class="leftArea">
+<select id="ManufacturerSelect"><option></option></select>
 <ul id="tmpList"></ul>
 </div>
 
@@ -83,9 +83,6 @@
 <input id="TemplateID" name="TemplateID" type=hidden>
 
 <div class="mainArea">
-<label>Request ID:</label>
-<input id="RequestID" name="RequestID" type="number"/>
-
 <label>Front Picture File:</label>
 <input type="text" name="FrontPictureFile" id="FrontPictureFile" size=40>
 <div class="imgcontainer"><img id="frontpic" width="300"/></div>
@@ -137,10 +134,11 @@
 <label>SNMP Version</label>
 <input type="text" name="SNMPVersion" id="SNMPVersion">
 
-<label>Submitted By:</label>
-<input type="text" id="SubmittedBy" name="submittedby" disabled />
+<label>Last Modified:</label>
+<input type="text" id="LastModified" name="LastModified" disabled />
 
-<button id="btnSave">Approve</button>
+<br>
+<button id="btnSave">Update</button>
 <button id="btnDelete">Delete</button>
 </div>
 
@@ -317,9 +315,11 @@ $.extend(FormSerializer.patterns, {
 });
 
 function refreshList() {
+	var limiter=($('#ManufacturerSelect').val() >0)?'/bymanufacturer/'+$('#ManufacturerSelect').val():'';
+
 	$.ajax({
 		type: 'GET',
-		url: 'https://repository.opendcim.org/api/template/pending/',
+		url: 'https://repository.opendcim.org/api/template'+limiter,
 		headers: {
 			'APIKey':'<?= $u->APIKey; ?>',
 			'UserID':'<?= $u->UserID; ?>'
@@ -330,9 +330,9 @@ function refreshList() {
 			if(data.errorcode==200 && !data.error) {
 				// Update local record with data from queue
 				$('#tmpList').html('');
-				for( var i in data.templatequeue ) {
-					var row = data.templatequeue[i];
-					var a=$('<a>').data('identity',row.RequestID).attr('href','#').text(row.RequestID + ' - ' + row.Model);
+				for( var i in data.templates ) {
+					var row = data.templates[i];
+					var a=$('<a>').data('identity',row.TemplateID).attr('href','#').text(row.TemplateID + ' - ' + row.Model);
 					var li=$('<li>').append(a);
 					$('#tmpList').append(li);
 
@@ -529,7 +529,7 @@ function addRow(slot,obj){
 function findById(id) {
 	$.ajax({
 		type: 'GET',
-		url: 'https://repository.opendcim.org/api/template/pending/' + id,
+		url: 'https://repository.opendcim.org/api/template/' + id,
 		headers: {
 			'APIKey':'<?= $u->APIKey; ?>',
 			'UserID':'<?= $u->UserID; ?>'
@@ -537,9 +537,8 @@ function findById(id) {
 		dataType: "json",
 		success: function(data) {
 			resetPage();
-			var row = data.templatequeue[0];
+			var row = data.templates[0];
 			$('#btnDelete').show();
-			$('#RequestID').val(row.RequestID);
 			$('#TemplateID').val(row.TemplateID);
 			$('#ManufacturerID').val(row.ManufacturerID);
 			$('#Model').val(row.Model);
@@ -552,16 +551,16 @@ function findById(id) {
 			$('#ChassisSlots').val(row.ChassisSlots);
 			$('#RearChassisSlots').val(row.RearChassisSlots);
 			$('#SNMPVersion').val(row.SNMPVersion);
-			$('#SubmittedBy').val(row.SubmittedBy);
+			$('#LastModified').val(row.LastModified);
 			$('#FrontPictureFile').val(row.FrontPictureFile);
 			$('#RearPictureFile').val(row.RearPictureFile);
 			if ( row.FrontPictureFile != "" ) {
-				$('#frontpic').attr( "src", '/images/submitted/'+row.RequestID+'.'+row.FrontPictureFile ).on('load',drawSlots);
+				$('#frontpic').attr( "src", row.FrontPictureFile ).on('load',drawSlots);
 			} else {
 				$('#frontpic').attr( "src", "" );
 			}
 			if ( row.RearPictureFile != "" ) {
-				$('#rearpic').attr( "src", '/images/submitted/'+row.RequestID+'.'+row.RearPictureFile ).on('load',drawSlots);
+				$('#rearpic').attr( "src", row.RearPictureFile ).on('load',drawSlots);
 			} else {
 				$('#rearpic').attr( "src", "" );
 			}
@@ -572,7 +571,6 @@ function findById(id) {
 				tmphtml = "<h3>CDU Template Details</h3>\n";
 
 				tmphtml += "<input type='hidden' value='"+ct.TemplateID+"' name='cdutemplate.TemplateID'>\n";
-				tmphtml += "<input type='hidden' value='"+ct.RequestID+"' name='cdutemplate.RequestID'>\n";
 				tmphtml += "Managed <input type='text' value='"+ct.Managed+"' name='cdutemplate.Managed'>\n";
 				tmphtml += "ATS <input type='text' value='"+ct.ATS+"' name='cdutemplate.ATS'>\n";
 				tmphtml += "VersionOID <input type='text' value='"+ct.VersionOID+"' name='cdutemplate.VersionOID'>\n";
@@ -595,7 +593,6 @@ function findById(id) {
 
 				tmphtml = "<h3>Sensor Template Details</h3>\n";
 				tmphtml += "<input type='hidden' value='"+st.TemplateID+"' name='sensortemplate.TemplateID'>\n";
-				tmphtml += "<input type='hidden' value='"+st.RequestID+"' name='sensortemplate.RequestID'>\n";
 				tmphtml += "Temp OID <input type='text' value='"+st.TemperatureOID+"' name='sensortemplate.TemperatureOID'>\n";
 				tmphtml += "Humidity OID <input type='text' value='"+st.HumidityOID+"' name='sensortemplate.HumidityOID'>\n";
 				tmphtml += "Temp Multiplier <input type='text' value='"+st.TempMultiplier+"' name='sensortemplate.TempMultiplier'>\n";
@@ -736,7 +733,7 @@ function approveRequest() {
 	$.ajax({
 		type: 'POST',
 		contentType: 'application/json',
-		url: 'https://repository.opendcim.org/api/template/approve',
+		url: 'https://repository.opendcim.org/api/template/'+$('#TemplateID').val(),
 		dataType: "json",
 		headers: {
 			'APIKey':'<?= $u->APIKey; ?>',
@@ -747,16 +744,16 @@ function approveRequest() {
 			refreshList();
 		},
 		error: function( jqXHR, textStatus, errorThrown ) {
-			alert( 'Error processing approval.' );
+			alert( 'Error processing update.' );
 		}
 	});
 }
 
 function deleteRequest() {
 	$.ajax({
-		type: 'POST',
+		type: 'DELETE',
 		contentType: 'application/json',
-		url: 'https://repository.opendcim.org/api/template/pending/delete/'+$('#RequestID').val(),
+		url: 'https://repository.opendcim.org/api/template/'+$('#TemplateID').val(),
 		dataType: 'json',
 		headers: {
 			'APIKey':'<?= $u->APIKey; ?>',
@@ -852,6 +849,20 @@ Points = (function(_super) {
 
 $(document).ready( function() {
 	refreshList();
+	$('#ManufacturerSelect').on('change',refreshList);
+	$.ajax({
+		type: 'GET',
+		url: 'https://repository.opendcim.org/api/manufacturer/populated/',
+		dataType: 'json',
+		success: function(data) {
+			if(data.errorcode==200 && !data.error) {
+				for( var i in data.manufacturers ) {
+					var row = data.manufacturers[i];
+					$('#ManufacturerSelect').append('<option value="'+row.ManufacturerID+'">'+row.Name+'</option>');
+				}
+			}
+		}
+	});
 	$.ajax({
 		type: 'GET',
 		url: 'https://repository.opendcim.org/api/manufacturer',

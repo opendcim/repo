@@ -1,11 +1,9 @@
 <?php
-	require_once( "../db.inc.php" );
-	require_once( "../repo.inc.php" );
+	require_once "../db.inc.php";
+	require_once "../repo.inc.php";
+	require_once "../vendor/autoload.php";
+	require_once "auth.php";
 
-	if ( ! isset( $_SESSION['userid'] ) ) {
-		header( "Location: /login.php" );
-		exit;
-	}
 
 	$u = new Users();
 	$u->UserID = $_SESSION['userid'];
@@ -88,9 +86,15 @@
 
 <label>Submitted By:</label>
 <input type="text" id="submittedby" name="submittedby" disabled />
-
+<div>
 <button id="btnSave">Approve</button>
 <button id="btnDelete">Delete</button>
+
+<select name="reason">
+<option value=1>Duplicate of Existing Record</option>
+<option value=2>This is a product line, not a Manufacturer</option>
+</select>
+</div>
 </div>
 
 </form>
@@ -212,6 +216,9 @@ function deleteRequest() {
                         'APIKey':'<?= $u->APIKey; ?>',
                         'UserID':'<?= $u->UserID; ?>'
                 },
+		data: JSON.stringify({
+			"Reason":$('#reason').val()
+			}),
                 success: function( data, textStatus, jqXHR ) {
                         refreshList();
                 },
