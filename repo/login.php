@@ -32,7 +32,7 @@
 
 To recover your password, open https://repository.opendcim.org/admin/resetpass.php?userid=" . $cUser->UserID . "&hash=" . $cUser->TempHash;
 	                        $message = Swift_Message::newInstance("Requested Password Reset")
-	                                ->setFrom(array("scott@opendcim.org" => "openDCIM Administrator" ))
+	                                ->setFrom(array("you@your.org" => "openDCIM Administrator" ))
 	                                ->setTo(array($cUser->UserID => $cUser->PrettyName ))
 	                                ->setBody( $mContent );
 
